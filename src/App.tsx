@@ -156,11 +156,12 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f8f9fa]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
-          <p className="text-gray-500 font-medium animate-pulse">Initializing Pointify...</p>
-        </div>
+      <div className="min-h-screen bg-[#f8f9fa] flex items-center justify-center">
+        <motion.div 
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full"
+        />
       </div>
     );
   }
@@ -441,6 +442,17 @@ function Dashboard({ deferredPrompt }: { deferredPrompt: any, [key: string]: any
         </div>
         
         <div className="p-4 bg-gray-50 rounded-2xl mt-auto space-y-4">
+          {deferredPrompt && (
+            <button 
+              onClick={async () => {
+                deferredPrompt.prompt();
+                await deferredPrompt.userChoice;
+              }}
+              className="w-full p-3 bg-blue-50 text-blue-600 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-blue-100 transition-all mb-4"
+            >
+              <Download size={14} /> Install Pointify
+            </button>
+          )}
           {user?.role === 'parent' && (
             <div className="space-y-2">
               <div className="text-[11px] font-black uppercase text-gray-400 tracking-wider ml-1">Switch Account</div>
@@ -523,7 +535,7 @@ function Dashboard({ deferredPrompt }: { deferredPrompt: any, [key: string]: any
           </header>
           
           <AnimatePresence mode="wait">
-            {activeTab === 'overview' && <OverviewView key="overview" deferredPrompt={deferredPrompt} />}
+            {activeTab === 'overview' && <OverviewView key="overview" />}
             {activeTab === 'chores' && <ChoresView key="chores" />}
             {activeTab === 'rewards' && <RewardsView key="rewards" />}
             {activeTab === 'goals' && <SharedGoalsView key="goals" />}
@@ -675,7 +687,7 @@ function NotificationCard({ notification }: any) {
 
 // --- Views Implementation ---
 
-function OverviewView({ deferredPrompt }: { deferredPrompt: any, [key: string]: any }) {
+function OverviewView() {
   const { user } = useAuth();
   const [familyMembers, setFamilyMembers] = useState<any[]>([]);
   const [selectedChild, setSelectedChild] = useState<any | null>(null);
@@ -701,35 +713,8 @@ function OverviewView({ deferredPrompt }: { deferredPrompt: any, [key: string]: 
     }
   };
 
-  const handleInstall = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      await deferredPrompt.userChoice;
-    }
-  };
-
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-      {deferredPrompt && (
-        <div className="bg-blue-600 rounded-[32px] p-6 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl shadow-blue-100">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md">
-              <Download size={24} />
-            </div>
-            <div>
-              <h3 className="font-bold text-lg">Install Pointify</h3>
-              <p className="text-blue-100 text-sm">Add it to your home screen for faster access!</p>
-            </div>
-          </div>
-          <button 
-            onClick={handleInstall}
-            className="w-full md:w-auto px-6 py-3 bg-white text-blue-600 rounded-xl font-bold hover:bg-blue-50 transition-all active:scale-95 shadow-lg"
-          >
-            Install Now
-          </button>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm">
           <h3 className="text-lg font-bold mb-6">Family Rankings</h3>
