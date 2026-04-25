@@ -204,30 +204,51 @@ function LandingPage({ onAuthSuccess, deferredPrompt }: { onAuthSuccess: () => v
   };
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
-      <div className="mb-12">
-        <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg mb-8 mx-auto">
-          <Trophy className="text-white w-8 h-8" />
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="min-h-screen bg-[#f8f9fa] flex flex-col items-center justify-center p-6 text-center">
+      <div className="max-w-4xl w-full">
+        <div className="mb-12">
+          <div className="w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-blue-200 mb-8 mx-auto rotate-3">
+            <Trophy className="text-white w-10 h-10" />
+          </div>
+          <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6 text-gray-900">Pointify</h1>
+          <p className="text-xl text-gray-500 max-w-lg mx-auto leading-relaxed">
+            The gamified chore and reward system for modern families. 
+            Keep track of points, set goals, and celebrate together.
+          </p>
         </div>
-        <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4 text-[#1a1a1a]">Pointify</h1>
-        <p className="text-lg text-gray-500 max-w-sm mx-auto">Local, simple family reward system. No accounts needed.</p>
-      </div>
-      <div className="flex flex-col gap-3 w-full max-w-[240px]">
-        <button 
-          onClick={handleEnter} disabled={loading}
-          className="flex items-center justify-center gap-3 bg-blue-600 text-white px-8 py-4 rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
-        >
-          <span>Enter App</span>
-        </button>
-        {deferredPrompt && (
+
+        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
           <button 
-            onClick={handleInstall}
-            className="flex items-center justify-center gap-2 bg-white text-blue-600 border border-blue-100 px-8 py-4 rounded-xl font-bold hover:bg-blue-50 transition-all active:scale-95"
+            onClick={handleEnter} disabled={loading}
+            className="w-full sm:w-auto px-10 py-5 bg-blue-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-blue-100 hover:bg-blue-700 hover:-translate-y-1 transition-all active:scale-95 disabled:opacity-50"
           >
-            <Download size={18} />
-            <span>Install App</span>
+            Get Started Free
           </button>
-        )}
+          
+          {deferredPrompt && (
+            <button 
+              onClick={handleInstall}
+              className="w-full sm:w-auto px-10 py-5 bg-white text-blue-600 border-2 border-blue-100 rounded-2xl font-bold text-lg hover:bg-blue-50 hover:-translate-y-1 transition-all active:scale-95 flex items-center justify-center gap-3"
+            >
+              <Download size={22} />
+              Install App
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+          {[
+            { icon: <Clock className="text-blue-600" />, title: "Daily Chores", desc: "Easily assign and verify daily family tasks." },
+            { icon: <Star className="text-amber-500" />, title: "Earn Points", desc: "Kids earn points for every task they complete." },
+            { icon: <Target className="text-indigo-600" />, title: "Family Goals", desc: "Collaborate on big rewards like pizza nights." }
+          ].map((feature, i) => (
+            <div key={i} className="bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm">
+              <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center mb-6">{feature.icon}</div>
+              <h3 className="text-lg font-bold mb-2 text-gray-900">{feature.title}</h3>
+              <p className="text-gray-500 text-sm leading-relaxed">{feature.desc}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </motion.div>
   );
@@ -442,17 +463,6 @@ function Dashboard({ deferredPrompt }: { deferredPrompt: any, [key: string]: any
         </div>
         
         <div className="p-4 bg-gray-50 rounded-2xl mt-auto space-y-4">
-          {deferredPrompt && (
-            <button 
-              onClick={async () => {
-                deferredPrompt.prompt();
-                await deferredPrompt.userChoice;
-              }}
-              className="w-full p-3 bg-blue-50 text-blue-600 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-blue-100 transition-all mb-4"
-            >
-              <Download size={14} /> Install Pointify
-            </button>
-          )}
           {user?.role === 'parent' && (
             <div className="space-y-2">
               <div className="text-[11px] font-black uppercase text-gray-400 tracking-wider ml-1">Switch Account</div>
@@ -535,7 +545,7 @@ function Dashboard({ deferredPrompt }: { deferredPrompt: any, [key: string]: any
           </header>
           
           <AnimatePresence mode="wait">
-            {activeTab === 'overview' && <OverviewView key="overview" />}
+            {activeTab === 'overview' && <OverviewView key="overview" deferredPrompt={deferredPrompt} />}
             {activeTab === 'chores' && <ChoresView key="chores" />}
             {activeTab === 'rewards' && <RewardsView key="rewards" />}
             {activeTab === 'goals' && <SharedGoalsView key="goals" />}
@@ -687,7 +697,7 @@ function NotificationCard({ notification }: any) {
 
 // --- Views Implementation ---
 
-function OverviewView() {
+function OverviewView({ deferredPrompt }: { deferredPrompt: any, [key: string]: any }) {
   const { user } = useAuth();
   const [familyMembers, setFamilyMembers] = useState<any[]>([]);
   const [selectedChild, setSelectedChild] = useState<any | null>(null);
@@ -713,8 +723,35 @@ function OverviewView() {
     }
   };
 
+  const handleInstall = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+    }
+  };
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+      {deferredPrompt && (
+        <div className="bg-blue-600 rounded-[32px] p-6 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl shadow-blue-100">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md">
+              <Download size={24} />
+            </div>
+            <div>
+              <h3 className="font-bold text-lg">Install Pointify</h3>
+              <p className="text-blue-100 text-sm">Add it to your home screen for faster access!</p>
+            </div>
+          </div>
+          <button 
+            onClick={handleInstall}
+            className="w-full md:w-auto px-6 py-3 bg-white text-blue-600 rounded-xl font-bold hover:bg-blue-50 transition-all active:scale-95 shadow-lg"
+          >
+            Install Now
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm">
           <h3 className="text-lg font-bold mb-6">Family Rankings</h3>
