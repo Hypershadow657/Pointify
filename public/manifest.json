@@ -2,7 +2,7 @@
   "name": "Pointify",
   "short_name": "Pointify",
   "description": "Gamified family chore and reward system",
-  "start_url": ".",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",
