@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, createContext, useContext } from 'react';
+import React, { useState, useEffect, createContext, useContext, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Trophy, 
@@ -194,7 +194,7 @@ function LandingPage({ onAuthSuccess }: { onAuthSuccess: () => void, [key: strin
         <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg mb-8 mx-auto">
           <Trophy className="text-white w-8 h-8" />
         </div>
-        <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4 text-[#1a1a1a]">FamilyPoints</h1>
+        <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4 text-[#1a1a1a]">Pointify</h1>
         <p className="text-lg text-gray-500 max-w-sm mx-auto">Local, simple family reward system. No accounts needed.</p>
       </div>
       <button 
@@ -401,7 +401,7 @@ function Dashboard() {
       <nav className="hidden lg:flex w-64 bg-white border-r border-gray-100 flex-col p-6 shrink-0 h-full">
         <div className="flex items-center gap-3 mb-10 pl-2">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center"><Trophy className="text-white w-4 h-4" /></div>
-          <h1 className="text-xl font-bold tracking-tight">FamilyPoints</h1>
+          <h1 className="text-xl font-bold tracking-tight">Pointify</h1>
         </div>
         <div className="space-y-1 flex-1">
           {navItems.filter(item => !item.parentOnly || user?.role === 'parent').map(item => (
@@ -418,7 +418,7 @@ function Dashboard() {
         <div className="p-4 bg-gray-50 rounded-2xl mt-auto space-y-4">
           {user?.role === 'parent' && (
             <div className="space-y-2">
-              <div className="text-[9px] font-black uppercase text-gray-400 tracking-wider ml-1">Switch Account</div>
+              <div className="text-[11px] font-black uppercase text-gray-400 tracking-wider ml-1">Switch Account</div>
               <div className="flex gap-2 p-1 overflow-x-auto no-scrollbar">
                 {familyMembers.map((member) => (
                   <button 
@@ -447,8 +447,8 @@ function Dashboard() {
               </div>
             </button>
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-bold truncate">{user?.name}</div>
-              <div className="text-[10px] text-gray-500 flex items-center gap-1">
+              <div className="text-base font-bold truncate">{user?.name}</div>
+              <div className="text-xs text-gray-500 flex items-center gap-1">
                 <span className="capitalize">{user?.role}</span>
                 <span className="opacity-30">•</span>
                 <button onClick={() => setShowAvatarModal(true)} className="hover:text-blue-600 transition-colors">Edit</button>
@@ -473,7 +473,7 @@ function Dashboard() {
       <header className="lg:hidden bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center shrink-0"><Trophy className="text-white w-3.5 h-3.5" /></div>
-          <span className="font-bold tracking-tight text-lg">FamilyPoints</span>
+          <span className="font-bold tracking-tight text-lg">Pointify</span>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setIsActivityOpen(true)} className="p-2 text-gray-500 hover:bg-gray-50 rounded-xl relative">
@@ -490,7 +490,7 @@ function Dashboard() {
       <main className="flex-1 flex flex-col min-w-0 overflow-y-auto pb-20 lg:pb-0">
         <div className="p-4 md:p-8 max-w-5xl w-full mx-auto space-y-6 md:space-y-8 flex-1">
           <header className="flex justify-between items-center sm:block">
-            <h2 className="text-xl md:text-2xl font-bold capitalize lg:block hidden">{activeTab} Overview</h2>
+            <h2 className="text-xl md:text-2xl font-bold capitalize lg:block hidden">{activeTab}</h2>
             <div className="px-4 py-2 bg-white border border-gray-100 rounded-2xl shadow-sm font-medium flex items-center gap-3 w-fit sm:mt-2">
               <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg"><Star size={14} fill="currentColor" /></div>
               <span className="text-xs md:text-sm">Points: <span className="font-bold text-blue-600">{user?.points}</span></span>
@@ -509,10 +509,10 @@ function Dashboard() {
 
       {/* --- Desktop Activity Bar --- */}
       <aside className="hidden xl:flex w-80 bg-gray-50 border-l border-gray-100 flex-col h-screen overflow-hidden">
-        <div className="p-8 pb-4"><h3 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2"><Bell size={12} />Activity</h3></div>
+        <div className="p-8 pb-4"><h3 className="text-sm font-black uppercase tracking-widest text-gray-400 flex items-center gap-2"><Bell size={12} />Activity</h3></div>
         <div className="flex-1 overflow-y-auto p-8 pt-2 space-y-4">
           {notifications.map((notif, i) => <NotificationCard key={i} notification={notif} />)}
-          {notifications.length === 0 && <div className="text-center py-10 text-gray-400 text-xs font-medium">No activity yet</div>}
+          {notifications.length === 0 && <div className="text-center py-10 text-gray-400 text-sm font-medium">No activity yet</div>}
         </div>
       </aside>
 
@@ -550,7 +550,7 @@ function Dashboard() {
               <div className={`p-2 rounded-xl transition-all ${activeTab === item.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 lg:shadow-none' : 'hover:bg-gray-50'}`}>
                 {item.icon}
               </div>
-              <span className="text-[10px] font-bold uppercase tracking-tighter">{item.label}</span>
+              <span className="text-xs font-bold uppercase tracking-tighter">{item.label}</span>
             </button>
           ))}
           {user?.role === 'parent' && (
@@ -614,8 +614,8 @@ function LogoutModal({ user, onClose, onConfirm }: any) {
             You're using a guest session. Make sure you've saved your <span className="font-bold text-blue-600">Family ID</span> if you want to join this group again later.
           </p>
           <div className="bg-gray-50 p-4 rounded-2xl">
-            <div className="text-[9px] font-black uppercase text-gray-400 tracking-widest mb-1">Your Family ID</div>
-            <div className="font-mono text-sm font-bold text-blue-600 select-all">{user?.familyId}</div>
+            <div className="text-xs font-black uppercase text-gray-400 tracking-widest mb-1">Your Family ID</div>
+            <div className="font-mono text-base font-bold text-blue-600 select-all">{user?.familyId}</div>
           </div>
         </div>
         <div className="flex gap-3">
@@ -641,9 +641,9 @@ function NotificationCard({ notification }: any) {
   const time = diff < 1 ? 'JUST NOW' : diff < 60 ? `${diff} MINS AGO` : diff < 1440 ? `${Math.floor(diff/60)} HOURS AGO` : 'YESTERDAY';
   return (
     <div className={`p-4 bg-white rounded-2xl shadow-sm border border-gray-100 border-l-4 ${notification.type === 'chore_completed' ? 'border-l-blue-500' : notification.type === 'reward_redeemed' ? 'border-l-amber-500' : 'border-l-green-500'}`}>
-      <div className="text-[9px] text-gray-400 font-bold mb-1 uppercase">{time}</div>
-      <p className="text-xs font-bold text-[#1a1a1a] mb-0.5">{notification.type.replace('_', ' ').toUpperCase()}</p>
-      <p className="text-[11px] text-gray-600 leading-tight">{notification.message}</p>
+      <div className="text-[10px] text-gray-400 font-bold mb-1 uppercase">{time}</div>
+      <p className="text-sm font-bold text-[#1a1a1a] mb-0.5">{notification.type.replace('_', ' ').toUpperCase()}</p>
+      <p className="text-xs text-gray-600 leading-tight">{notification.message}</p>
     </div>
   );
 }
@@ -818,8 +818,8 @@ function ManageChildModal({ child, onClose }: any) {
           </div>
           <div className="bg-blue-50 p-6 rounded-[32px] flex flex-col justify-center items-center text-blue-600 border border-blue-100 shadow-inner md:scale-100 scale-90">
             <Trophy size={32} className="mb-2 opacity-50" />
-            <div className="text-3xl font-black">{points}</div>
-            <div className="text-[9px] font-black uppercase opacity-60">Balance</div>
+            <div className="text-4xl font-black">{points}</div>
+            <div className="text-[11px] font-black uppercase opacity-60">Balance</div>
           </div>
         </div>
 
@@ -948,7 +948,7 @@ function ChoresView() {
         )}
       </AnimatePresence>
 
-      <div className="flex justify-between items-center"><h3 className="text-lg font-bold">Chore Catalog</h3>{user?.role === 'parent' && <button onClick={() => setShowModal(true)} className="text-blue-600 font-bold text-sm">+ Add</button>}</div>
+      <div className="flex justify-between items-center"><h3 className="text-xl font-bold">Chore Catalog</h3>{user?.role === 'parent' && <button onClick={() => setShowModal(true)} className="text-blue-600 font-bold text-sm bg-blue-50 px-5 py-2.5 rounded-2xl border border-blue-100 hover:bg-blue-100 transition-all">+ Add Chore</button>}</div>
       
       <div className="space-y-12">
         {['homework', 'family'].map(cat => {
@@ -975,7 +975,7 @@ function ChoresView() {
                   {/* --- Desktop Table --- */}
                   <div className="hidden sm:block bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden">
                     <table className="w-full text-left">
-                      <thead className="text-[10px] text-gray-400 uppercase tracking-widest border-b border-gray-50 font-black">
+                      <thead className="text-xs text-gray-400 uppercase tracking-widest border-b border-gray-50 font-black">
                         <tr><th className="px-6 py-4">Task</th><th className="px-6 py-4 text-right">Points</th><th className="px-6 py-4 text-right">Action</th></tr>
                       </thead>
                       <tbody className="divide-y divide-gray-50">
@@ -993,10 +993,10 @@ function ChoresView() {
                                     <div className="flex items-center gap-2">
                                       <div className="font-bold">{c.title}</div>
                                       {!c.isRecurring && (
-                                        <span className="text-[8px] bg-red-50 text-red-500 px-1.5 py-0.5 rounded font-black tracking-tighter uppercase">One-Time</span>
+                                        <span className="text-xs bg-red-50 text-red-500 px-2 py-1 rounded-lg font-black tracking-tighter uppercase">One-Time</span>
                                       )}
                                       {c.expiresAt && (
-                                        <span className="text-[8px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded font-black tracking-tighter uppercase">Expiring</span>
+                                        <span className="text-xs bg-amber-50 text-amber-600 px-2 py-1 rounded-lg font-black tracking-tighter uppercase">Expiring</span>
                                       )}
                                     </div>
                                   </div>
@@ -1042,10 +1042,10 @@ function ChoresView() {
                                 {c.category === 'homework' ? <BookOpen size={18} /> : <Home size={18} />}
                               </div>
                               <div>
-                                <div className="font-bold text-gray-900 leading-tight">{c.title}</div>
-                                <div className="flex flex-wrap gap-1 mt-1.5">
-                                  {!c.isRecurring && <span className="text-[7px] bg-red-50 text-red-500 px-1.5 py-0.5 rounded font-black uppercase">One-Time</span>}
-                                  {c.expiresAt && <span className="text-[7px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded font-black uppercase tracking-tighter">Expiring</span>}
+                                <div className="font-bold text-gray-900 leading-tight text-base">{c.title}</div>
+                                <div className="flex flex-wrap gap-1 mt-2">
+                                  {!c.isRecurring && <span className="text-[10px] bg-red-50 text-red-500 px-2 py-1 rounded-lg font-black uppercase">One-Time</span>}
+                                  {c.expiresAt && <span className="text-[10px] bg-amber-50 text-amber-600 px-2 py-1 rounded-lg font-black uppercase tracking-tighter">Expiring</span>}
                                 </div>
                               </div>
                             </div>
@@ -1180,11 +1180,11 @@ function AddChoreModal({ onClose, user }: any) {
             </button>
 
             <div className="p-4 bg-gray-50 rounded-2xl flex flex-col items-center justify-center gap-2">
-              <div className="text-[10px] font-black uppercase text-gray-400">Duration</div>
+              <div className="text-xs font-black uppercase text-gray-400">Duration</div>
               <select 
                 value={duration} 
                 onChange={(e) => setDuration(e.target.value)}
-                className="text-xs font-bold bg-transparent outline-none cursor-pointer text-blue-600 appearance-none text-center w-full"
+                className="text-sm font-bold bg-transparent outline-none cursor-pointer text-blue-600 appearance-none text-center w-full"
               >
                 <option value="none">No Limit</option>
                 <option value="24h">24 Hours</option>
@@ -1289,8 +1289,8 @@ function RewardsView() {
       </AnimatePresence>
 
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-bold">Rewards</h3>
-        {user?.role === 'parent' && <button onClick={() => setShowModal(true)} className="text-blue-600 font-bold text-sm">+ Add</button>}
+        <h3 className="text-xl font-bold">Rewards</h3>
+        {user?.role === 'parent' && <button onClick={() => setShowModal(true)} className="text-blue-600 font-bold text-sm bg-blue-50 px-5 py-2.5 rounded-2xl border border-blue-100 hover:bg-blue-100 transition-all">+ Add Reward</button>}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
         {rewards.map((r, i) => {
@@ -1312,9 +1312,9 @@ function RewardsView() {
               )}
               {!r.isRecurring && (
                 <div className="absolute top-3 right-3 flex flex-col gap-1 items-end">
-                  <span className="text-[8px] bg-red-50 text-red-500 px-1.5 py-0.5 rounded font-black tracking-tighter uppercase">Limited</span>
+                  <span className="text-[10px] bg-red-50 text-red-500 px-2 py-1 rounded-lg font-black tracking-tighter uppercase">Limited</span>
                   {r.expiresAt && (
-                    <span className="text-[7px] bg-amber-50 text-amber-600 px-1 py-0.5 rounded font-bold uppercase">Expiring</span>
+                    <span className="text-[9px] bg-amber-50 text-amber-600 px-2 py-1 rounded-lg font-bold uppercase">Expiring</span>
                   )}
                 </div>
               )}
@@ -1395,12 +1395,12 @@ function AddRewardModal({ onClose, user }: any) {
         <h2 className="text-xl font-bold">New Reward</h2>
         <div className="space-y-4">
           <div className="space-y-1">
-            <label className="text-[10px] font-black uppercase text-gray-400 ml-1">Reward Name</label>
-            <input required type="text" placeholder="e.g. Extra Pizza" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full p-3 sm:p-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-blue-100 transition-all font-medium text-sm" />
+            <label className="text-xs font-black uppercase text-gray-400 ml-1">Reward Name</label>
+            <input required type="text" placeholder="e.g. Extra Pizza" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full p-3 sm:p-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-blue-100 transition-all font-bold text-base" />
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] font-black uppercase text-gray-400 ml-1">Point Cost</label>
-            <input required type="number" value={cost} onChange={(e) => setCost(parseInt(e.target.value))} className="w-full p-3 sm:p-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-blue-100 transition-all font-medium text-sm" />
+            <label className="text-xs font-black uppercase text-gray-400 ml-1">Point Cost</label>
+            <input required type="number" value={cost} onChange={(e) => setCost(parseInt(e.target.value))} className="w-full p-3 sm:p-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-blue-100 transition-all font-bold text-base" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -1409,19 +1409,19 @@ function AddRewardModal({ onClose, user }: any) {
               onClick={() => setIsRecurring(!isRecurring)}
               className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-2xl hover:bg-gray-100 transition-all group gap-2"
             >
-              <div className="text-[10px] font-black uppercase text-gray-400">Behavior</div>
-              <div className="text-xs font-bold text-gray-900">{isRecurring ? 'Recurring' : 'One-Time'}</div>
+              <div className="text-xs font-black uppercase text-gray-400">Behavior</div>
+              <div className="text-sm font-bold text-gray-900">{isRecurring ? 'Recurring' : 'One-Time'}</div>
               <div className={`w-8 h-4 rounded-full transition-all relative ${isRecurring ? 'bg-blue-600' : 'bg-gray-200'}`}>
                 <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${isRecurring ? 'left-4.5' : 'left-0.5'}`} />
               </div>
             </button>
 
             <div className="p-4 bg-gray-50 rounded-2xl flex flex-col items-center justify-center gap-2">
-              <div className="text-[10px] font-black uppercase text-gray-400">Duration</div>
+              <div className="text-xs font-black uppercase text-gray-400">Duration</div>
               <select 
                 value={duration} 
                 onChange={(e) => setDuration(e.target.value)}
-                className="text-xs font-bold bg-transparent outline-none cursor-pointer text-blue-600 appearance-none text-center w-full"
+                className="text-sm font-bold bg-transparent outline-none cursor-pointer text-blue-600 appearance-none text-center w-full"
               >
                 <option value="none">No Limit</option>
                 <option value="24h">24 Hours</option>
@@ -1511,8 +1511,8 @@ function SharedGoalsView() {
       </AnimatePresence>
 
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-bold">Family Goals</h3>
-        {user?.role === 'parent' && <button onClick={() => setShowModal(true)} className="text-blue-600 font-bold text-sm">+ New Goal</button>}
+        <h3 className="text-xl font-bold">Family Goals</h3>
+        {user?.role === 'parent' && <button onClick={() => setShowModal(true)} className="text-blue-600 font-bold text-sm bg-blue-50 px-5 py-2.5 rounded-2xl border border-blue-100 hover:bg-blue-100 transition-all">+ New Goal</button>}
       </div>
 
       {goals.length === 0 ? (
@@ -1670,12 +1670,12 @@ function AddSharedGoalModal({ onClose, user }: any) {
         <h2 className="text-xl font-bold">New Family Goal</h2>
         <div className="space-y-4">
           <div className="space-y-1">
-            <label className="text-[10px] font-black uppercase text-gray-400 ml-1">Goal Title</label>
-            <input required type="text" placeholder="e.g. Movie Night" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full p-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-blue-100 font-medium" />
+            <label className="text-xs font-black uppercase text-gray-400 ml-1">Goal Title</label>
+            <input required type="text" placeholder="e.g. Movie Night" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full p-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-blue-100 font-bold text-base" />
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] font-black uppercase text-gray-400 ml-1">Point Cost</label>
-            <input required type="number" value={cost} onChange={(e) => setCost(parseInt(e.target.value))} className="w-full p-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-blue-100 font-bold" />
+            <label className="text-xs font-black uppercase text-gray-400 ml-1">Point Cost</label>
+            <input required type="number" value={cost} onChange={(e) => setCost(parseInt(e.target.value))} className="w-full p-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-blue-100 font-black text-xl" />
           </div>
         </div>
         <button type="submit" className="w-full p-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95">Set Family Goal</button>
@@ -1750,7 +1750,7 @@ function ApprovalsView({ onAction }: any) {
     <div className="space-y-8">
       {completions.length > 0 && (
         <section className="space-y-4">
-          <h3 className="text-xs font-black uppercase text-gray-400 tracking-widest flex items-center gap-2"><Clock size={12} /> Pending Chores</h3>
+          <h3 className="text-sm font-black uppercase text-gray-400 tracking-widest flex items-center gap-2"><Clock size={12} /> Pending Chores</h3>
           <div className="space-y-3">
             {completions.map((c, i) => (
               <div key={i} className="bg-white p-5 rounded-[24px] border border-gray-100 flex justify-between items-center shadow-sm hover:shadow-md transition-all">
@@ -1771,7 +1771,7 @@ function ApprovalsView({ onAction }: any) {
 
       {redemptions.length > 0 && (
         <section className="space-y-4">
-          <h3 className="text-xs font-black uppercase text-gray-400 tracking-widest flex items-center gap-2"><Trophy size={12} /> Pending Rewards</h3>
+          <h3 className="text-sm font-black uppercase text-gray-400 tracking-widest flex items-center gap-2"><Trophy size={12} /> Pending Rewards</h3>
           <div className="space-y-3">
             {redemptions.map((r, i) => (
               <div key={i} className="bg-white p-5 rounded-[24px] border border-gray-100 flex justify-between items-center shadow-sm hover:shadow-md transition-all">
@@ -1804,17 +1804,24 @@ const DICEBEAR_STYLES = [
 
 const STYLE_CUSTOMIZATIONS: any = {
   avataaars: {
-    skin: { param: 'skinColor', options: ['614335', 'ae5d29', 'd08b5b', 'edb98a', 'f8d25c', 'fd9841', 'ffdbb4'] },
-    hair: { param: 'hairColor', options: ['2c1b18', '4a312c', '724130', 'a55728', 'b58143', 'c93305', 'd6b370', 'e8e1e1', 'f59797', 'ecdcbf'] },
-    clothing: { param: 'clothesColor', options: ['262e33', '3c4f5c', '5199e4', '65c9ff', 'a7ca50', '929598', 'e6e6e6', 'ff482c', 'ff5c5c', 'ffafb9', 'ffffb1'] },
+    eyes: { type: 'shape', param: 'eyes', options: ['default', 'eyeRoll', 'happy', 'hearts', 'side', 'squint', 'surprised', 'wink', 'winkWacky'] },
+    eyebrows: { type: 'shape', param: 'eyebrows', options: ['default', 'angry', 'angryNatural', 'defaultNatural', 'flatNatural', 'raisedExcited', 'sadConcerned', 'unibrowNatural', 'upLoud'] },
+    mouth: { type: 'shape', param: 'mouth', options: ['default', 'concerned', 'disbelief', 'eating', 'grimace', 'sad', 'screamOpen', 'serious', 'smile', 'tongue', 'twinkle'] },
+    skin: { type: 'color', param: 'skinColor', options: ['614335', 'ae5d29', 'd08b5b', 'edb98a', 'f8d25c', 'fd9841', 'ffdbb4'] },
+    hairColor: { type: 'color', param: 'hairColor', options: ['2c1b18', '4a312c', '724130', 'a55728', 'b58143', 'c93305', 'd6b370', 'e8e1e1', 'f59797', 'ecdcbf'] },
   },
   lorelei: {
-    skin: { param: 'bodyColor', options: ['d08b5b', 'ae5d29', '614335', 'f8d25c', 'fd9841', 'ffdbb4', 'edb98a'] },
-    hair: { param: 'hairColor', options: ['2c1b18', '4a312c', '724130', 'a55728', 'b58143', 'c93305', 'd6b370', 'e8e1e1', 'f59797', 'ecdcbf'] },
+    eyes: { type: 'shape', param: 'eyes', options: ['variant01', 'variant02', 'variant03', 'variant04', 'variant05', 'variant06', 'variant07', 'variant08', 'variant09', 'variant10'] },
+    eyebrows: { type: 'shape', param: 'eyebrows', options: ['variant01', 'variant02', 'variant03', 'variant04', 'variant05', 'variant06', 'variant07'] },
+    mouth: { type: 'shape', param: 'mouth', options: ['variant01', 'variant02', 'variant03', 'variant04', 'variant05', 'variant06', 'variant07', 'variant08'] },
+    skin: { type: 'color', param: 'bodyColor', options: ['d08b5b', 'ae5d29', '614335', 'f8d25c', 'fd9841', 'ffdbb4', 'edb98a'] },
+    hairColor: { type: 'color', param: 'hairColor', options: ['2c1b18', '4a312c', '724130', 'a55728', 'b58143', 'c93305', 'd6b370', 'e8e1e1', 'f59797', 'ecdcbf'] },
   },
   bottts: {
-    skin: { param: 'faceColor', options: ['929598', 'd1d4f9', 'c0aede', 'ffd5dc', 'ffdfbf'] },
-    eyes: { param: 'eyesColor', options: ['000000', 'ffd5dc', 'ffdfbf', 'c0aede'] }
+    eyes: { type: 'shape', param: 'eyes', options: ['round', 'roundSide', 'square', 'squareSide', 'bulging', 'dizzy', 'glow', 'robocop', 'sensor'] },
+    mouth: { type: 'shape', param: 'mouth', options: ['bite', 'smile', 'square01', 'square02'] },
+    faceColor: { type: 'color', param: 'faceColor', options: ['929598', 'd1d4f9', 'c0aede', 'ffd5dc', 'ffdfbf'] },
+    eyesColor: { type: 'color', param: 'eyesColor', options: ['000000', 'ffd5dc', 'ffdfbf', 'c0aede'] }
   }
 };
 
@@ -1897,16 +1904,24 @@ function AvatarCustomizer({ initialUrl, onSave, onCancel }: { initialUrl?: strin
       try {
         const url = new URL(initialUrl);
         url.searchParams.forEach((val, key) => {
-          if (key.toLowerCase().includes('color')) initial[key] = val;
+          // Exclude standard params that have their own state
+          const systemParams = ['seed', 'backgroundColor', 'backgroundType', 'radius', 'scale', 'flip'];
+          if (!systemParams.includes(key)) {
+            initial[key] = val;
+          }
         });
       } catch {}
     }
     return initial;
   });
 
+  const prevStyle = React.useRef(style);
   useEffect(() => {
-    // Reset or adapt custom colors when style changes
-    setCustomColors({});
+    // Only reset custom colors when style ACTUALLY changes after first mount
+    if (prevStyle.current !== style) {
+      setCustomColors({});
+      prevStyle.current = style;
+    }
   }, [style]);
 
   const avatarUrl = useMemo(() => {
@@ -1919,7 +1934,7 @@ function AvatarCustomizer({ initialUrl, onSave, onCancel }: { initialUrl?: strin
     params.set('flip', flip.toString());
     
     Object.entries(customColors).forEach(([key, val]) => {
-      params.set(key, val);
+      params.set(key, val as string);
     });
 
     return `https://api.dicebear.com/7.x/${style}/svg?${params.toString()}`;
@@ -1928,11 +1943,16 @@ function AvatarCustomizer({ initialUrl, onSave, onCancel }: { initialUrl?: strin
   const customization = STYLE_CUSTOMIZATIONS[style];
 
   return (
-    <div className="space-y-6 max-h-[70vh] overflow-y-auto no-scrollbar pr-1">
-      <div className="flex flex-col items-center sticky top-0 bg-white z-10 pb-4 shadow-[0_20px_20px_-20px_rgba(0,0,0,0.05)]">
+    <div className="space-y-8">
+      <div className="flex flex-col items-center sticky top-0 bg-white z-10 pb-6 shadow-[0_20px_20px_-20px_rgba(0,0,0,0.05)]">
         <div className="relative group">
-          <div className="w-40 h-40 rounded-[48px] bg-white border-4 border-white shadow-2xl overflow-hidden relative">
-            <img key={avatarUrl} src={avatarUrl} alt="Preview" className="w-full h-full object-cover transition-opacity duration-300" />
+          <div className="w-44 h-44 rounded-[56px] bg-white border-4 border-white shadow-2xl overflow-hidden relative">
+            <img 
+              key={avatarUrl} 
+              src={avatarUrl} 
+              alt="Preview" 
+              className="w-full h-full object-cover transition-opacity duration-300" 
+            />
             <div className="absolute inset-0 bg-blue-600/0 group-hover:bg-blue-600/5 transition-all" />
           </div>
           <button 
@@ -1940,22 +1960,22 @@ function AvatarCustomizer({ initialUrl, onSave, onCancel }: { initialUrl?: strin
               setSeed(Math.random().toString(36).substring(7));
               setCustomColors({});
             }}
-            className="absolute -bottom-2 -right-2 w-12 h-12 bg-white text-blue-600 rounded-2xl flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all border border-gray-100"
+            className="absolute -bottom-2 -right-2 w-14 h-14 bg-white text-blue-600 rounded-3xl flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all border border-gray-100"
           >
-            <Shuffle size={20} />
+            <Shuffle size={24} />
           </button>
         </div>
       </div>
 
-      <div className="space-y-6 px-1">
+      <div className="space-y-8 pb-32">
         <div>
-          <label className="text-[10px] font-black uppercase text-gray-400 ml-1 mb-3 block tracking-widest">Base Style</label>
-          <div className="grid grid-cols-3 gap-2">
+          <label className="text-xs font-black uppercase text-gray-400 ml-1 mb-4 block tracking-widest">Base Style</label>
+          <div className="grid grid-cols-3 gap-3">
             {DICEBEAR_STYLES.map(s => (
               <button 
                 key={s.id}
                 onClick={() => setStyle(s.id)}
-                className={`p-3 rounded-2xl border-2 text-[10px] font-black uppercase tracking-tight transition-all ${style === s.id ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-50 bg-gray-50/50 text-gray-400 hover:border-gray-200'}`}
+                className={`p-4 rounded-3xl border-2 text-sm font-bold uppercase tracking-tight transition-all ${style === s.id ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-md' : 'border-gray-50 bg-gray-50/50 text-gray-400 hover:border-gray-200'}`}
               >
                 {s.name}
               </button>
@@ -1963,126 +1983,157 @@ function AvatarCustomizer({ initialUrl, onSave, onCancel }: { initialUrl?: strin
           </div>
         </div>
 
-        {/* --- Pro Details (Skin, Hair, etc) --- */}
+        {/* --- Pro Details (Eyes, Mouth, Skin, Hair, etc) --- */}
         {customization && (
-          <div className="space-y-6 bg-blue-50/50 p-6 rounded-[32px] border border-blue-100/50">
-            <div className="flex items-center gap-2 mb-2">
-              <Palette size={14} className="text-blue-600" />
-              <span className="text-[10px] font-black uppercase text-blue-600 tracking-widest">Character Details</span>
+          <div className="space-y-8 bg-blue-50/40 p-8 rounded-[48px] border border-blue-100/30">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-200">
+                <Palette size={16} />
+              </div>
+              <span className="text-xs font-black uppercase text-blue-700 tracking-widest">Character Customizer</span>
             </div>
             
             {Object.entries(customization).map(([label, config]: [string, any]) => (
-              <div key={label} className="space-y-3">
-                <div className="text-[9px] font-black uppercase text-gray-400 tracking-wider capitalize">{label} Treatment</div>
-                <div className="flex flex-wrap gap-2">
-                  {config.options.map((option: string) => (
-                    <button 
-                      key={option}
-                      onClick={() => setCustomColors(prev => ({ ...prev, [config.param]: option }))}
-                      className={`w-7 h-7 rounded-full border-2 transition-transform hover:scale-110 active:scale-95 ${customColors[config.param] === option ? 'border-blue-600 scale-110 shadow-md ring-2 ring-blue-100' : 'border-white'}`}
-                      style={{ backgroundColor: `#${option}` }}
-                    />
-                  ))}
+              <div key={label} className="space-y-4">
+                <div className="flex items-center justify-between px-1">
+                  <div className="text-[11px] font-black uppercase text-gray-400 tracking-wider capitalize">{label} Treatment</div>
                   <button 
-                     onClick={() => {
-                       const next = { ...customColors };
-                       delete next[config.param];
-                       setCustomColors(next);
-                     }}
-                     className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-[8px] font-bold ${!customColors[config.param] ? 'bg-gray-200 border-blue-600' : 'bg-gray-100 border-white'}`}
+                    onClick={() => {
+                      const next = { ...customColors };
+                      delete next[config.param];
+                      setCustomColors(next);
+                    }}
+                    className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full transition-all ${!customColors[config.param] ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-gray-300 hover:text-gray-400 border border-gray-100'}`}
                   >
-                    Auto
+                    Automatic
                   </button>
                 </div>
+
+                {config.type === 'color' ? (
+                  <div className="flex flex-wrap gap-3">
+                    {config.options.map((option: string) => (
+                      <button 
+                        key={option}
+                        onClick={() => setCustomColors(prev => ({ ...prev, [config.param]: option }))}
+                        className={`w-9 h-9 rounded-full border-4 transition-transform hover:scale-110 active:scale-95 ${customColors[config.param] === option ? 'border-blue-600 scale-110 shadow-xl ring-4 ring-blue-100' : 'border-white shadow-sm'}`}
+                        style={{ backgroundColor: `#${option}` }}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    {config.options.map((option: string) => (
+                      <button 
+                        key={option}
+                        onClick={() => setCustomColors(prev => ({ ...prev, [config.param]: option }))}
+                        className={`px-3 py-3 rounded-2xl border-2 text-[11px] font-bold truncate transition-all ${customColors[config.param] === option ? 'border-blue-600 bg-white text-blue-700 shadow-md scale-[1.02]' : 'border-transparent bg-white/50 text-gray-400 hover:border-gray-100'}`}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
         )}
 
-        <div className="space-y-4 bg-gray-50 p-6 rounded-[32px] border border-gray-100">
-          <div className="flex items-center justify-between">
-            <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Scene Background</label>
-            <div className="flex bg-white p-1 rounded-xl border border-gray-100">
+        <div className="space-y-6 bg-gray-50/50 p-8 rounded-[48px] border border-gray-100">
+          <div className="flex items-center justify-between px-1">
+            <label className="text-xs font-black uppercase text-gray-400 tracking-widest">Backdrop Style</label>
+            <div className="flex bg-white p-1.5 rounded-2xl border border-gray-100 shadow-sm">
               <button 
                 onClick={() => setBgType('solid')}
-                className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase transition-all ${bgType === 'solid' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}
+                className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${bgType === 'solid' ? 'bg-blue-600 text-white shadow-xl' : 'text-gray-400 hover:bg-gray-50'}`}
               >
                 Solid
               </button>
               <button 
                 onClick={() => setBgType('gradientLinear')}
-                className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase transition-all ${bgType === 'gradientLinear' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}
+                className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${bgType === 'gradientLinear' ? 'bg-blue-600 text-white shadow-xl' : 'text-gray-400 hover:bg-gray-50'}`}
               >
                 Gradient
               </button>
             </div>
           </div>
           
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-3">
             {(bgType === 'solid' ? PRESET_COLORS : PRESET_GRADIENTS).map(c => (
               <button 
                 key={c}
                 onClick={() => setBgColor(c)}
                 style={{ background: bgType === 'solid' ? (c.startsWith('#') ? c : `#${c}`) : `linear-gradient(to bottom, #${c}, #ffffff)` }}
-                className={`w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 active:scale-95 ${bgColor === c ? 'border-blue-600 scale-110 shadow-lg' : 'border-white'}`}
+                className={`w-9 h-9 rounded-full border-4 transition-transform hover:scale-120 active:scale-95 ${bgColor === c ? 'border-blue-600 scale-120 shadow-2xl z-10' : 'border-white shadow-sm'}`}
               />
             ))}
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <div className="bg-gray-50 p-4 rounded-3xl border border-gray-100">
-            <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest block mb-3">Scale: {scale}%</label>
+          <div className="bg-gray-50/50 p-6 rounded-[32px] border border-gray-100">
+            <label className="text-xs font-black uppercase text-gray-400 tracking-widest block mb-4">Portrait Scale: {scale}%</label>
             <input 
               type="range" min="60" max="100" step="5" 
               value={scale} onChange={(e) => setScale(parseInt(e.target.value))} 
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+              className="w-full h-3 bg-gray-200 rounded-full appearance-none cursor-pointer accent-blue-600"
             />
           </div>
-          <div className="bg-gray-50 p-4 rounded-3xl border border-gray-100">
-            <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest block mb-3">Corner: {radius}</label>
+          <div className="bg-gray-50/50 p-6 rounded-[32px] border border-gray-100">
+            <label className="text-xs font-black uppercase text-gray-400 tracking-widest block mb-4">Corner Polish: {radius}</label>
             <input 
               type="range" min="0" max="50" step="5" 
               value={radius} onChange={(e) => setRadius(parseInt(e.target.value))} 
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+              className="w-full h-3 bg-gray-200 rounded-full appearance-none cursor-pointer accent-blue-600"
             />
           </div>
         </div>
 
-        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-3xl border border-gray-100">
-          <div className="flex items-center gap-2">
-            <RefreshCw size={14} className="text-gray-400" />
-            <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Flip Side</span>
+        <div className="flex items-center justify-between p-6 bg-gray-50/50 rounded-[32px] border border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white rounded-xl border border-gray-100 text-gray-400">
+              <RefreshCw size={18} />
+            </div>
+            <span className="text-xs font-black uppercase text-gray-400 tracking-widest">Flip Portrait</span>
           </div>
           <button 
             onClick={() => setFlip(!flip)}
-            className={`w-12 h-6 rounded-full transition-all relative ${flip ? 'bg-blue-600' : 'bg-gray-200'}`}
+            className={`w-16 h-8 rounded-full transition-all relative shadow-inner ${flip ? 'bg-blue-600' : 'bg-gray-200'}`}
           >
-            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${flip ? 'left-7' : 'left-1'}`} />
+            <div className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow-md transition-all ${flip ? 'left-9' : 'left-1'}`} />
           </button>
         </div>
 
         <div>
-          <label className="text-[10px] font-black uppercase text-gray-400 ml-1 mb-2 block tracking-widest">Random Seed</label>
+          <label className="text-xs font-black uppercase text-gray-400 ml-1 mb-3 block tracking-widest">Random Seed Reference</label>
           <div className="relative">
             <input 
               type="text" 
               value={seed} 
               onChange={(e) => setSeed(e.target.value)}
-              className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-100 transition-all font-mono text-sm pr-12 focus:bg-white"
-              placeholder="Name your avatar..."
+              className="w-full p-5 bg-gray-50 border border-gray-100 rounded-[32px] outline-none focus:ring-4 focus:ring-blue-100 transition-all font-mono text-base pr-14 focus:bg-white focus:border-blue-200"
+              placeholder="Name your character..."
             />
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300">
-              <Shuffle size={18} />
+            <div className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-300">
+              <Shuffle size={20} />
             </div>
           </div>
         </div>
       </div>
 
-      <div className="flex gap-3 pt-6 sticky bottom-0 bg-white py-4 border-t border-gray-50">
-        {onCancel && <button onClick={onCancel} className="flex-1 p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-xs hover:bg-gray-100 transition-colors">Go Back</button>}
-        <button onClick={() => onSave(avatarUrl)} className="flex-1 p-4 bg-blue-600 text-white rounded-2xl font-bold text-xs shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center gap-2">
-          <CircleCheck size={18} /> Done
+      <div className="flex gap-4 p-8 sticky bottom-0 bg-white/95 backdrop-blur-xl border-t border-gray-100 z-20 -mx-8 -mb-8 rounded-t-[48px] shadow-[0_-20px_40px_rgba(0,0,0,0.03)]">
+        {onCancel && (
+          <button 
+            onClick={onCancel} 
+            className="flex-1 p-5 bg-gray-50 border border-gray-100 rounded-3xl font-black text-xs uppercase tracking-widest text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-all active:scale-95"
+          >
+            Go Back
+          </button>
+        )}
+        <button 
+          onClick={() => onSave(avatarUrl)} 
+          className="flex-[2] p-5 bg-blue-600 text-white rounded-3xl font-black text-xs uppercase tracking-widest shadow-2xl shadow-blue-200 hover:bg-blue-700 hover:scale-105 transition-all active:scale-95 flex items-center justify-center gap-3"
+        >
+          <CircleCheck size={20} /> Save Changes
         </button>
       </div>
     </div>
