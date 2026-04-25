@@ -28,6 +28,7 @@ import {
   Palette,
   RefreshCw,
   Shuffle,
+  Download,
   User as UserIcon,
 } from 'lucide-react';
 
@@ -61,6 +62,14 @@ const useAuth = () => {
 export default function App() {
   const [user, setUser] = useState<FamilyUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    });
+  }, []);
 
   useEffect(() => {
     // Safety timeout: Never stay loading more than 3 seconds
@@ -162,11 +171,11 @@ export default function App() {
       <div className="min-h-screen bg-[#f8f9fa] text-[#1a1a1a] font-sans selection:bg-blue-100 antialiased overflow-x-hidden">
         <AnimatePresence mode="wait">
           {!user ? (
-            <LandingPage key="landing" onAuthSuccess={refreshUser} />
+            <LandingPage key="landing" onAuthSuccess={refreshUser} deferredPrompt={deferredPrompt} />
           ) : !user.familyId ? (
             <Onboarding key="onboarding" onComplete={refreshUser} />
           ) : (
-            <Dashboard key="dashboard" />
+            <Dashboard key="dashboard" deferredPrompt={deferredPrompt} />
           )}
         </AnimatePresence>
       </div>
@@ -176,16 +185,22 @@ export default function App() {
 
 // --- Page Components ---
 
-function LandingPage({ onAuthSuccess }: { onAuthSuccess: () => void, [key: string]: any }) {
+function LandingPage({ onAuthSuccess, deferredPrompt }: { onAuthSuccess: () => void, deferredPrompt: any, [key: string]: any }) {
   const { setUser } = useAuth();
   const [loading, setLoading] = useState(false);
 
   const handleEnter = async () => {
     setLoading(true);
-    // Simple anonymous session - we'll handle actual "user" creation in onboarding
-    // For now we just trigger onboarding if no user in localStorage
     setUser({ uid: 'temp' } as any);
     setLoading(false);
+  };
+
+  const handleInstall = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      console.log(`User choice: ${outcome}`);
+    }
   };
 
   return (
@@ -197,12 +212,23 @@ function LandingPage({ onAuthSuccess }: { onAuthSuccess: () => void, [key: strin
         <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4 text-[#1a1a1a]">Pointify</h1>
         <p className="text-lg text-gray-500 max-w-sm mx-auto">Local, simple family reward system. No accounts needed.</p>
       </div>
-      <button 
-        onClick={handleEnter} disabled={loading}
-        className="flex items-center gap-3 bg-blue-600 text-white px-8 py-4 rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
-      >
-        <span>Enter App</span>
-      </button>
+      <div className="flex flex-col gap-3 w-full max-w-[240px]">
+        <button 
+          onClick={handleEnter} disabled={loading}
+          className="flex items-center justify-center gap-3 bg-blue-600 text-white px-8 py-4 rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
+        >
+          <span>Enter App</span>
+        </button>
+        {deferredPrompt && (
+          <button 
+            onClick={handleInstall}
+            className="flex items-center justify-center gap-2 bg-white text-blue-600 border border-blue-100 px-8 py-4 rounded-xl font-bold hover:bg-blue-50 transition-all active:scale-95"
+          >
+            <Download size={18} />
+            <span>Install App</span>
+          </button>
+        )}
+      </div>
     </motion.div>
   );
 }
@@ -358,7 +384,7 @@ function Onboarding({ onComplete }: { onComplete: () => void, [key: string]: any
 
 // --- Dashboard ---
 
-function Dashboard() {
+function Dashboard({ deferredPrompt }: { deferredPrompt: any, [key: string]: any }) {
   const { user, signOut, refreshUser, switchUser } = useAuth();
   const [activeTab, setActiveTab] = useState<'overview' | 'chores' | 'rewards' | 'approvals'>('overview');
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -416,6 +442,17 @@ function Dashboard() {
         </div>
         
         <div className="p-4 bg-gray-50 rounded-2xl mt-auto space-y-4">
+          {deferredPrompt && (
+            <button 
+              onClick={async () => {
+                deferredPrompt.prompt();
+                await deferredPrompt.userChoice;
+              }}
+              className="w-full p-3 bg-blue-50 text-blue-600 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-blue-100 transition-all mb-4"
+            >
+              <Download size={14} /> Install Pointify
+            </button>
+          )}
           {user?.role === 'parent' && (
             <div className="space-y-2">
               <div className="text-[11px] font-black uppercase text-gray-400 tracking-wider ml-1">Switch Account</div>
