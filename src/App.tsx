@@ -31,26 +31,154 @@ import {
   Download,
   User as UserIcon,
 } from 'lucide-react';
-import { 
-  doc, 
-  setDoc, 
-  getDoc, 
-  collection, 
-  query, 
-  where, 
-  onSnapshot, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  orderBy, 
-  limit,
-  serverTimestamp,
-  getDocFromServer,
-  increment,
-  writeBatch
-} from 'firebase/firestore';
-import { onAuthStateChanged, signInAnonymously, signOut as firebaseSignOut } from 'firebase/auth';
-import { db, auth } from './firebase';
+// --- Storage Service (Mock Firebase) ---
+const STORAGE_KEY = 'pointify_storage_v1';
+
+interface StorageData {
+  families: Record<string, any>;
+  users: Record<string, Record<string, any>>;
+  chores: Record<string, Record<string, any>>;
+  rewards: Record<string, Record<string, any>>;
+  completions: Record<string, Record<string, any>>;
+  redemptions: Record<string, Record<string, any>>;
+  sharedGoals: Record<string, Record<string, any>>;
+  notifications: Record<string, Record<string, any>>;
+}
+
+const getStorage = (): StorageData => {
+  const data = localStorage.getItem(STORAGE_KEY);
+  if (!data) {
+    return {
+      families: {},
+      users: {},
+      chores: {},
+      rewards: {},
+      completions: {},
+      redemptions: {},
+      sharedGoals: {},
+      notifications: {},
+    };
+  }
+  return JSON.parse(data);
+};
+
+const saveStorage = (data: StorageData) => {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  window.dispatchEvent(new Event('storage-update'));
+};
+
+const StorageService = {
+  getFamily: (id: string) => getStorage().families[id],
+  saveFamily: (family: any) => {
+    const s = getStorage();
+    s.families[family.id] = family;
+    saveStorage(s);
+  },
+  getUsers: (familyId: string) => Object.values(getStorage().users[familyId] || {}),
+  saveUser: (familyId: string, user: any) => {
+    const s = getStorage();
+    if (!s.users[familyId]) s.users[familyId] = {};
+    s.users[familyId][user.uid] = user;
+    saveStorage(s);
+  },
+  getChores: (familyId: string) => Object.values(getStorage().chores[familyId] || {}),
+  saveChore: (familyId: string, chore: any) => {
+    const s = getStorage();
+    if (!s.chores[familyId]) s.chores[familyId] = {};
+    const id = chore.id || Math.random().toString(36).substring(7);
+    chore.id = id;
+    s.chores[familyId][id] = chore;
+    saveStorage(s);
+  },
+  deleteChore: (familyId: string, choreId: string) => {
+    const s = getStorage();
+    if (s.chores[familyId]) delete s.chores[familyId][choreId];
+    saveStorage(s);
+  },
+  getRewards: (familyId: string) => Object.values(getStorage().rewards[familyId] || {}),
+  saveReward: (familyId: string, reward: any) => {
+    const s = getStorage();
+    if (!s.rewards[familyId]) s.rewards[familyId] = {};
+    const id = reward.id || Math.random().toString(36).substring(7);
+    reward.id = id;
+    s.rewards[familyId][id] = reward;
+    saveStorage(s);
+  },
+  deleteReward: (familyId: string, rewardId: string) => {
+    const s = getStorage();
+    if (s.rewards[familyId]) delete s.rewards[familyId][rewardId];
+    saveStorage(s);
+  },
+  getCompletions: (familyId: string) => Object.values(getStorage().completions[familyId] || {}),
+  saveCompletion: (familyId: string, completion: any) => {
+    const s = getStorage();
+    if (!s.completions[familyId]) s.completions[familyId] = {};
+    const id = completion.id || Math.random().toString(36).substring(7);
+    completion.id = id;
+    s.completions[familyId][id] = completion;
+    saveStorage(s);
+  },
+  getRedemptions: (familyId: string) => Object.values(getStorage().redemptions[familyId] || {}),
+  saveRedemption: (familyId: string, redemption: any) => {
+    const s = getStorage();
+    if (!s.redemptions[familyId]) s.redemptions[familyId] = {};
+    const id = redemption.id || Math.random().toString(36).substring(7);
+    redemption.id = id;
+    s.redemptions[familyId][id] = redemption;
+    saveStorage(s);
+  },
+  getSharedGoals: (familyId: string) => Object.values(getStorage().sharedGoals[familyId] || {}),
+  saveSharedGoal: (familyId: string, goal: any) => {
+    const s = getStorage();
+    if (!s.sharedGoals[familyId]) s.sharedGoals[familyId] = {};
+    const id = goal.id || Math.random().toString(36).substring(7);
+    goal.id = id;
+    s.sharedGoals[familyId][id] = goal;
+    saveStorage(s);
+  },
+  deleteSharedGoal: (familyId: string, goalId: string) => {
+    const s = getStorage();
+    if (s.sharedGoals[familyId]) delete s.sharedGoals[familyId][goalId];
+    saveStorage(s);
+  },
+  getNotifications: (familyId: string) => {
+    const notifs = Object.values(getStorage().notifications[familyId] || {});
+    return notifs.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  },
+  saveNotification: (familyId: string, notif: any) => {
+    const s = getStorage();
+    if (!s.notifications[familyId]) s.notifications[familyId] = {};
+    const id = notif.id || Math.random().toString(36).substring(7);
+    notif.id = id;
+    s.notifications[familyId][id] = notif;
+    saveStorage(s);
+  },
+  updateNotification: (familyId: string, notifId: string, data: any) => {
+    const s = getStorage();
+    if (s.notifications[familyId] && s.notifications[familyId][notifId]) {
+      s.notifications[familyId][notifId] = { ...s.notifications[familyId][notifId], ...data };
+      saveStorage(s);
+    }
+  }
+};
+
+// --- Mock Auth ---
+const MockAuth = {
+  currentUser: null as { uid: string } | null,
+  signInAnonymously: () => {
+    let uid = localStorage.getItem('pointify_mock_uid');
+    if (!uid) {
+      uid = 'user_' + Math.random().toString(36).substring(7);
+      localStorage.setItem('pointify_mock_uid', uid);
+    }
+    MockAuth.currentUser = { uid };
+    return Promise.resolve({ user: { uid } });
+  },
+  signOut: () => {
+    MockAuth.currentUser = null;
+    return Promise.resolve();
+  }
+};
 
 // --- Error Handling ---
 enum OperationType {
@@ -62,25 +190,8 @@ enum OperationType {
   WRITE = 'write',
 }
 
-interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: any;
-}
-
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-    },
-    operationType,
-    path
-  };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+function handleStorageError(error: unknown, operationType: OperationType, path: string | null) {
+  console.error(`Storage Error [${operationType}] on [${path}]:`, error);
 }
 
 // --- Simple Types ---
@@ -121,90 +232,45 @@ export default function App() {
       setDeferredPrompt(e);
     });
 
-    // Test connection
-    const testConnection = async () => {
-      const currentDomain = window.location.hostname;
-      try {
-        // We use a specific path that doesn't necessarily exist, 
-        // just to verify the network path to Firestore is open.
-        await getDocFromServer(doc(db, '_connection_test_', 'ping'));
-      } catch (error) {
-        if (error instanceof Error) {
-          const msg = error.message.toLowerCase();
-          if (msg.includes('the client is offline')) {
-            console.error(`Firebase Connection Error: The client is offline. 
-            
-            IMPORTANT: You must authorize this domain in your Firebase Console:
-            1. Go to Authentication > Settings > Authorized domains
-            2. Add: ${currentDomain}
-            
-            Also ensure Firestore is enabled in your Firebase Console.`);
-          } else if (msg.includes('permission-denied') || msg.includes('insufficient permissions')) {
-            // Permission denied counts as a successful connection! 
-            // It means we reached Firebase but don't have access to this specific path.
-            console.log("Firebase connection verified (Server responded with expected permission restriction).");
+    const initAuth = async () => {
+      const savedUserData = localStorage.getItem('family_points_user');
+      if (savedUserData) {
+        const parsed = JSON.parse(savedUserData);
+        if (parsed.familyId && parsed.uid) {
+          MockAuth.currentUser = { uid: parsed.uid };
+          const userObj = StorageService.getUsers(parsed.familyId).find((u: any) => u.uid === parsed.uid);
+          if (userObj) {
+            setUser(userObj as FamilyUser);
           } else {
-            console.error("Firebase Initialization Error:", error.message);
+            setUser(null);
           }
         }
-      }
-    };
-    testConnection();
-  }, []);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        const savedUserData = localStorage.getItem('family_points_user');
-        if (savedUserData) {
-          const parsed = JSON.parse(savedUserData);
-          if (parsed.familyId && parsed.uid) {
-            const userRef = doc(db, 'families', parsed.familyId, 'users', parsed.uid);
-            try {
-              const userSnap = await getDoc(userRef);
-              if (userSnap.exists()) {
-                setUser(userSnap.data() as FamilyUser);
-              } else {
-                setUser(null);
-              }
-            } catch (err) {
-              handleFirestoreError(err, OperationType.GET, userRef.path);
-            }
-          }
-        }
-      } else {
-        setUser(null);
       }
       setLoading(false);
-    });
-
-    return () => unsubscribe();
+    };
+    initAuth();
   }, []);
 
   const handleSignOut = async () => {
-    await firebaseSignOut(auth);
+    await MockAuth.signOut();
     localStorage.removeItem('family_points_user');
     setUser(null);
   };
 
   const switchUser = (targetUser: FamilyUser) => {
     if (user?.role !== 'parent') return;
+    MockAuth.currentUser = { uid: targetUser.uid };
     localStorage.setItem('family_points_user', JSON.stringify(targetUser));
     setUser(targetUser);
   };
 
   const refreshUser = async () => {
     if (user?.familyId && user?.uid) {
-      const userRef = doc(db, 'families', user.familyId, 'users', user.uid);
-      try {
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists()) {
-          const data = userSnap.data() as FamilyUser;
-          setUser(data);
-          localStorage.setItem('family_points_user', JSON.stringify(data));
-        }
-      } catch (err) {
-        handleFirestoreError(err, OperationType.GET, userRef.path);
+      const users = StorageService.getUsers(user.familyId);
+      const userObj = users.find((u: any) => u.uid === user.uid);
+      if (userObj) {
+        setUser(userObj as FamilyUser);
+        localStorage.setItem('family_points_user', JSON.stringify(userObj));
       }
     }
   };
@@ -247,10 +313,10 @@ function LandingPage({ onAuthSuccess, deferredPrompt }: { onAuthSuccess: () => v
   const handleEnter = async () => {
     setLoading(true);
     try {
-      await signInAnonymously(auth);
-      setUser({ uid: 'temp' } as any);
+      await MockAuth.signInAnonymously();
+      setUser({ uid: MockAuth.currentUser?.uid } as any);
     } catch (err) {
-      console.error("Anonymous sign in failed:", err);
+      console.error("Mock sign in failed:", err);
     } finally {
       setLoading(false);
     }
@@ -307,7 +373,7 @@ function Onboarding({ onComplete }: { onComplete: () => void, [key: string]: any
 
   const finalize = async (familyId: string) => {
     setLoading(true);
-    const userId = auth.currentUser?.uid;
+    const userId = MockAuth.currentUser?.uid;
     if (!userId) return;
 
     const userData = {
@@ -319,14 +385,13 @@ function Onboarding({ onComplete }: { onComplete: () => void, [key: string]: any
       points: 0
     };
 
-    const userRef = doc(db, 'families', familyId, 'users', userId);
     try {
-      await setDoc(userRef, userData);
+      StorageService.saveUser(familyId, userData);
       localStorage.setItem('family_points_user', JSON.stringify(userData));
       setUser(userData as FamilyUser);
       onComplete();
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, userRef.path);
+      handleStorageError(err, OperationType.WRITE, `families/${familyId}/users/${userId}`);
     } finally {
       setLoading(false);
     }
@@ -335,18 +400,17 @@ function Onboarding({ onComplete }: { onComplete: () => void, [key: string]: any
   const handleCreateFamily = async () => {
     setLoading(true);
     const familyId = Math.random().toString(36).substring(2, 11);
-    const familyRef = doc(db, 'families', familyId);
     try {
       const familyData = {
         id: familyId,
         name: familyName,
-        createdBy: auth.currentUser?.uid || 'temp',
+        createdBy: MockAuth.currentUser?.uid || 'temp',
         createdAt: new Date().toISOString()
       };
-      await setDoc(familyRef, familyData);
+      StorageService.saveFamily(familyData);
       await finalize(familyId);
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, familyRef.path);
+      handleStorageError(err, OperationType.WRITE, `families/${familyId}`);
     } finally {
       setLoading(false);
     }
@@ -361,17 +425,16 @@ function Onboarding({ onComplete }: { onComplete: () => void, [key: string]: any
       setLoading(false);
       return;
     }
-    const familyRef = doc(db, 'families', id);
     try {
-      const familySnap = await getDoc(familyRef);
-      if (!familySnap.exists()) {
+      const familySnap = StorageService.getFamily(id);
+      if (!familySnap) {
         setError("Family ID not found!");
         setLoading(false);
         return;
       }
       await finalize(id);
     } catch (err) {
-      handleFirestoreError(err, OperationType.GET, familyRef.path);
+      handleStorageError(err, OperationType.GET, `families/${id}`);
       setLoading(false);
     }
   };
@@ -481,29 +544,20 @@ function Dashboard({ deferredPrompt }: { deferredPrompt: any, [key: string]: any
   useEffect(() => {
     if (!user?.familyId) return;
 
-    const familiesRef = doc(db, 'families', user.familyId);
+    const fetchData = () => {
+      setNotifications(StorageService.getNotifications(user.familyId));
+      setFamilyMembers(StorageService.getUsers(user.familyId) as FamilyUser[]);
+    };
+
+    fetchData();
+
+    // Mock real-time updates using local storage events
+    window.addEventListener('storage-update', fetchData);
     
-    // Notifications listener
-    const notifsQuery = query(
-      collection(familiesRef, 'notifications'),
-      orderBy('timestamp', 'desc'),
-      limit(20)
-    );
-    const unsubNotifs = onSnapshot(notifsQuery, (snapshot) => {
-      setNotifications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'notifications'));
-
-    // Members listener
-    const membersRef = collection(familiesRef, 'users');
-    const unsubMembers = onSnapshot(membersRef, (snapshot) => {
-      setFamilyMembers(snapshot.docs.map(doc => ({ ...doc.data() } as FamilyUser)));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'users'));
-
     refreshUser();
     
     return () => {
-      unsubNotifs();
-      unsubMembers();
+      window.removeEventListener('storage-update', fetchData);
     };
   }, [user?.uid, user?.familyId]);
 
@@ -789,10 +843,12 @@ function OverviewView() {
 
   useEffect(() => {
     if (!user?.familyId) return;
-    const unsub = onSnapshot(collection(db, 'families', user.familyId, 'users'), (snapshot) => {
-      setFamilyMembers(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() })));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'users'));
-    return () => unsub();
+    const fetchData = () => {
+      setFamilyMembers(StorageService.getUsers(user.familyId));
+    };
+    fetchData();
+    window.addEventListener('storage-update', fetchData);
+    return () => window.removeEventListener('storage-update', fetchData);
   }, [user?.familyId]);
 
   const copyCode = () => {
@@ -877,29 +933,32 @@ function ManageChildModal({ child, onClose }: any) {
 
   useEffect(() => {
     if (!child?.uid || !user?.familyId) return;
-    const activityQuery = query(
-      collection(db, 'families', user.familyId, 'completions'),
-      where('kidId', '==', child.uid),
-      where('status', '==', 'approved'),
-      limit(50)
-    );
-    const unsub = onSnapshot(activityQuery, (snapshot) => {
-      setActivity(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), type: 'chore' })));
+    
+    const fetchData = () => {
+      const completions = StorageService.getCompletions(user.familyId);
+      const filtered = completions.filter((c: any) => 
+        c.kidId === child.uid && c.status === 'approved'
+      ).map((c: any) => ({ ...c, type: 'chore' }));
+      
+      setActivity(filtered);
       setLoading(false);
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'completions'));
-    return () => unsub();
+    };
+
+    fetchData();
+    window.addEventListener('storage-update', fetchData);
+    return () => window.removeEventListener('storage-update', fetchData);
   }, [child.uid, user?.familyId]);
 
   const updatePoints = async () => {
     if (!user?.familyId) return;
     setSaving(true);
-    const userRef = doc(db, 'families', user.familyId, 'users', child.uid);
     try {
-      await updateDoc(userRef, { points });
+      const updatedUser = { ...child, points };
+      StorageService.saveUser(user.familyId, updatedUser);
       setSaving(false);
       onClose();
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, userRef.path);
+      handleStorageError(err, OperationType.UPDATE, `families/${user.familyId}/users/${child.uid}`);
     }
   };
 
@@ -1002,21 +1061,14 @@ function ChoresView() {
 
   useEffect(() => {
     if (!user?.familyId) return;
-    const choresRef = collection(db, 'families', user.familyId, 'chores');
-    const unsubChores = onSnapshot(choresRef, (snapshot) => {
-      setChores(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'chores'));
-
-    const completionsRef = collection(db, 'families', user.familyId, 'completions');
-    const q = query(completionsRef, where('status', '==', 'pending'), where('kidId', '==', user.uid));
-    const unsubComps = onSnapshot(q, (snapshot) => {
-      setPendingIds(snapshot.docs.map(doc => doc.data().choreId));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'completions'));
-
-    return () => {
-      unsubChores();
-      unsubComps();
+    const fetchData = () => {
+      setChores(StorageService.getChores(user.familyId));
+      const comps = StorageService.getCompletions(user.familyId);
+      setPendingIds(comps.filter((c: any) => c.status === 'pending' && c.kidId === user.uid).map((c: any) => c.choreId));
     };
+    fetchData();
+    window.addEventListener('storage-update', fetchData);
+    return () => window.removeEventListener('storage-update', fetchData);
   }, [user?.familyId, user?.uid]);
 
   const showToast = (message: string, type: 'success' | 'info' = 'success') => {
@@ -1028,8 +1080,7 @@ function ChoresView() {
     if (!user?.familyId) return;
     setCompletingIds(prev => [...prev, chore.id]);
     try {
-      const completionsRef = collection(db, 'families', user.familyId, 'completions');
-      await addDoc(completionsRef, { 
+      StorageService.saveCompletion(user.familyId, { 
         choreId: chore.id, 
         kidId: user.uid, 
         kidName: user.name,
@@ -1040,8 +1091,7 @@ function ChoresView() {
         timestamp: new Date().toISOString()
       });
 
-      const notifsRef = collection(db, 'families', user.familyId, 'notifications');
-      await addDoc(notifsRef, { 
+      StorageService.saveNotification(user.familyId, { 
         userId: 'ALL_PARENTS', 
         familyId: user.familyId, 
         message: `${user.name} completed: ${chore.title}`, 
@@ -1052,21 +1102,20 @@ function ChoresView() {
 
       showToast("Told your parents! Waiting for approval.");
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, 'completions');
+      handleStorageError(err, OperationType.WRITE, 'completions');
     } finally {
       setCompletingIds(prev => prev.filter(id => id !== chore.id));
     }
   };
 
-  const deleteChore = async () => {
+  const deleteChoreAction = async () => {
     if (!deletingChore || !user?.familyId) return;
-    const choreRef = doc(db, 'families', user.familyId, 'chores', deletingChore.id);
     try {
-      await deleteDoc(choreRef);
+      StorageService.deleteChore(user.familyId, deletingChore.id);
       setDeletingChore(null);
       showToast("Chore deleted", "info" as any);
     } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, choreRef.path);
+      handleStorageError(err, OperationType.DELETE, `chores/${deletingChore.id}`);
     }
   };
 
@@ -1231,7 +1280,7 @@ function ChoresView() {
           <DeleteConfirmationModal 
             title="Delete Chore" 
             message={`Are you sure you want to delete "${deletingChore.title}"?`}
-            onConfirm={deleteChore} 
+            onConfirm={deleteChoreAction} 
             onCancel={() => setDeletingChore(null)} 
           />
         )}
@@ -1260,7 +1309,6 @@ function AddChoreModal({ onClose, user }: any) {
       expiresAt = now.toISOString();
     }
 
-    const choresRef = collection(db, 'families', user.familyId, 'chores');
     const choreData = {
       title, 
       points, 
@@ -1273,10 +1321,10 @@ function AddChoreModal({ onClose, user }: any) {
     };
 
     try {
-      await addDoc(choresRef, choreData);
+      StorageService.saveChore(user.familyId, choreData);
       onClose();
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, choresRef.path);
+      handleStorageError(err, OperationType.WRITE, 'chores');
     }
   };
   return (
@@ -1356,21 +1404,14 @@ function RewardsView() {
 
   useEffect(() => {
     if (!user?.familyId) return;
-    const rewardsRef = collection(db, 'families', user.familyId, 'rewards');
-    const unsubRewards = onSnapshot(rewardsRef, (snapshot) => {
-      setRewards(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'rewards'));
-
-    const redemptionsRef = collection(db, 'families', user.familyId, 'redemptions');
-    const q = query(redemptionsRef, where('status', '==', 'pending'), where('kidId', '==', user.uid));
-    const unsubReds = onSnapshot(q, (snapshot) => {
-      setPendingIds(snapshot.docs.map(doc => doc.data().rewardId));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'redemptions'));
-
-    return () => {
-      unsubRewards();
-      unsubReds();
+    const fetchData = () => {
+      setRewards(StorageService.getRewards(user.familyId));
+      const reds = StorageService.getRedemptions(user.familyId);
+      setPendingIds(reds.filter((r: any) => r.status === 'pending' && r.kidId === user.uid).map((r: any) => r.rewardId));
     };
+    fetchData();
+    window.addEventListener('storage-update', fetchData);
+    return () => window.removeEventListener('storage-update', fetchData);
   }, [user?.familyId, user?.uid]);
 
   const showToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
@@ -1383,8 +1424,7 @@ function RewardsView() {
     if (user.points < r.cost) return showToast("Insufficient points!", "error");
     
     try {
-      const redemptionsRef = collection(db, 'families', user.familyId, 'redemptions');
-      await addDoc(redemptionsRef, { 
+      StorageService.saveRedemption(user.familyId, { 
         rewardId: r.id, 
         kidId: user.uid, 
         kidName: user.name,
@@ -1395,8 +1435,7 @@ function RewardsView() {
         timestamp: new Date().toISOString()
       });
       
-      const notifsRef = collection(db, 'families', user.familyId, 'notifications');
-      await addDoc(notifsRef, { 
+      StorageService.saveNotification(user.familyId, { 
         userId: 'ALL_PARENTS', 
         familyId: user.familyId, 
         message: `${user.name} wants to redeem: ${r.title}`, 
@@ -1407,19 +1446,18 @@ function RewardsView() {
       
       showToast("Sent to parents for approval!");
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, 'redemptions');
+      handleStorageError(err, OperationType.WRITE, 'redemptions');
     }
   };
 
-  const deleteReward = async () => {
+  const deleteRewardAction = async () => {
     if (!deletingReward || !user?.familyId) return;
-    const rewardRef = doc(db, 'families', user.familyId, 'rewards', deletingReward.id);
     try {
-      await deleteDoc(rewardRef);
+      StorageService.deleteReward(user.familyId, deletingReward.id);
       setDeletingReward(null);
       showToast("Reward deleted", "info" as any);
     } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, rewardRef.path);
+      handleStorageError(err, OperationType.DELETE, `rewards/${deletingReward.id}`);
     }
   };
 
@@ -1500,7 +1538,7 @@ function RewardsView() {
           <DeleteConfirmationModal 
             title="Delete Reward" 
             message={`Are you sure you want to delete "${deletingReward.title}"?`}
-            onConfirm={deleteReward} 
+            onConfirm={deleteRewardAction} 
             onCancel={() => setDeletingReward(null)} 
           />
         )}
@@ -1528,7 +1566,6 @@ function AddRewardModal({ onClose, user }: any) {
       expiresAt = now.toISOString();
     }
 
-    const rewardsRef = collection(db, 'families', user.familyId, 'rewards');
     const rewardData = { 
       title, 
       cost, 
@@ -1540,10 +1577,10 @@ function AddRewardModal({ onClose, user }: any) {
     };
 
     try {
-      await addDoc(rewardsRef, rewardData);
+      StorageService.saveReward(user.familyId, rewardData);
       onClose();
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, rewardsRef.path);
+      handleStorageError(err, OperationType.WRITE, 'rewards');
     }
   };
   return (
@@ -1605,11 +1642,12 @@ function SharedGoalsView() {
 
   useEffect(() => {
     if (!user?.familyId) return;
-    const goalsRef = collection(db, 'families', user.familyId, 'shared-goals');
-    const unsub = onSnapshot(goalsRef, (snapshot) => {
-      setGoals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'shared-goals'));
-    return () => unsub();
+    const fetchData = () => {
+      setGoals(StorageService.getSharedGoals(user.familyId));
+    };
+    fetchData();
+    window.addEventListener('storage-update', fetchData);
+    return () => window.removeEventListener('storage-update', fetchData);
   }, [user?.familyId]);
 
   const showToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
@@ -1627,35 +1665,32 @@ function SharedGoalsView() {
     if (user.points < amount) return showToast("Insufficient points!", "error");
 
     try {
-      const batch = writeBatch(db);
-      const userRef = doc(db, 'families', user.familyId, 'users', user.uid);
-      const goalRef = doc(db, 'families', user.familyId, 'shared-goals', contributingGoal.id);
+      // Mock Transaction
+      const u = { ...user, points: user.points - amount };
+      const g = { ...contributingGoal };
+      g.currentPoints = (g.currentPoints || 0) + amount;
+      if (!g.contributors) g.contributors = {};
+      g.contributors[user.uid] = (g.contributors[user.uid] || 0) + amount;
       
-      batch.update(userRef, { points: increment(-amount) });
-      batch.update(goalRef, { 
-        currentPoints: increment(amount),
-        [`contributors.${user.uid}`]: increment(amount) 
-      });
-
-      await batch.commit();
+      StorageService.saveUser(user.familyId, u);
+      StorageService.saveSharedGoal(user.familyId, g);
       
       showToast(`Chipped in ${amount} pts!`);
       setContributingGoal(null);
       refreshUser();
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, 'shared-goals');
+      handleStorageError(err, OperationType.WRITE, 'shared-goals');
     }
   };
 
-  const deleteGoal = async () => {
+  const deleteGoalAction = async () => {
     if (!deletingGoal || !user?.familyId) return;
-    const goalRef = doc(db, 'families', user.familyId, 'shared-goals', deletingGoal.id);
     try {
-      await deleteDoc(goalRef);
+      StorageService.deleteSharedGoal(user.familyId, deletingGoal.id);
       setDeletingGoal(null);
       showToast("Goal removed", "info" as any);
     } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, goalRef.path);
+      handleStorageError(err, OperationType.DELETE, `shared-goals/${deletingGoal.id}`);
     }
   };
 
@@ -1799,7 +1834,7 @@ function SharedGoalsView() {
           <DeleteConfirmationModal 
             title="Remove Goal" 
             message={`Delete the family goal "${deletingGoal.title}"? Contributions will not be refunded.`}
-            onConfirm={deleteGoal} 
+            onConfirm={deleteGoalAction} 
             onCancel={() => setDeletingGoal(null)} 
           />
         )}
@@ -1818,7 +1853,6 @@ function AddSharedGoalModal({ onClose, user }: any) {
     e.preventDefault();
     if (!user?.familyId) return;
 
-    const goalsRef = collection(db, 'families', user.familyId, 'shared-goals');
     const goalData = { 
       title, 
       cost, 
@@ -1829,10 +1863,10 @@ function AddSharedGoalModal({ onClose, user }: any) {
       createdAt: new Date().toISOString()
     };
     try {
-      await addDoc(goalsRef, goalData);
+      StorageService.saveSharedGoal(user.familyId, goalData);
       onClose();
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, goalsRef.path);
+      handleStorageError(err, OperationType.WRITE, 'shared-goals');
     }
   };
 
@@ -1894,44 +1928,50 @@ function ApprovalsView({ onAction }: any) {
 
   useEffect(() => {
     if (!user?.familyId) return;
-    const familiesRef = doc(db, 'families', user.familyId);
     
-    const compsRef = collection(familiesRef, 'completions');
-    const unsubComps = onSnapshot(query(compsRef, where('status', '==', 'pending')), (snapshot) => {
-      setCompletions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'completions'));
+    const fetchData = () => {
+      const comps = StorageService.getCompletions(user.familyId);
+      setCompletions(comps.filter((c: any) => c.status === 'pending'));
 
-    const redsRef = collection(familiesRef, 'redemptions');
-    const unsubReds = onSnapshot(query(redsRef, where('status', '==', 'pending')), (snapshot) => {
-      setRedemptions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'redemptions'));
-
-    return () => {
-      unsubComps();
-      unsubReds();
+      const reds = StorageService.getRedemptions(user.familyId);
+      setRedemptions(reds.filter((r: any) => r.status === 'pending'));
     };
+
+    fetchData();
+    window.addEventListener('storage-update', fetchData);
+    return () => window.removeEventListener('storage-update', fetchData);
   }, [user?.familyId]);
 
   const act = async (collectionName: string, item: any, action: 'approved' | 'rejected') => {
     if (!user?.familyId) return;
-    const batch = writeBatch(db);
-    const itemRef = doc(db, 'families', user.familyId, collectionName, item.id);
-    const kidRef = doc(db, 'families', user.familyId, 'users', item.kidId);
     
-    batch.update(itemRef, { status: action });
-    
-    if (action === 'approved') {
-      if (collectionName === 'completions') {
-        batch.update(kidRef, { points: increment(item.pointsAwarded) });
-      } else if (collectionName === 'redemptions') {
-        batch.update(kidRef, { points: increment(-item.cost) });
-      }
-    }
-
     try {
-      await batch.commit();
-      
-      const notifsRef = collection(db, 'families', user.familyId, 'notifications');
+      const kid = StorageService.getUsers(user.familyId).find((u: any) => u.uid === item.kidId);
+      if (!kid) throw new Error("Child not found");
+
+      // Update completion/redemption status
+      if (collectionName === 'completions') {
+        const updatedItem = { ...item, status: action };
+        StorageService.saveCompletion(user.familyId, updatedItem);
+        
+        if (action === 'approved') {
+          StorageService.saveUser(user.familyId, { 
+            ...kid, 
+            points: (kid.points || 0) + item.pointsAwarded 
+          });
+        }
+      } else if (collectionName === 'redemptions') {
+        const updatedItem = { ...item, status: action };
+        StorageService.saveRedemption(user.familyId, updatedItem);
+        
+        if (action === 'approved') {
+          StorageService.saveUser(user.familyId, { 
+            ...kid, 
+            points: (kid.points || 0) - item.cost 
+          });
+        }
+      }
+
       let message = "";
       let type = "";
       
@@ -1943,7 +1983,7 @@ function ApprovalsView({ onAction }: any) {
         type = action === 'approved' ? 'reward_approved' : 'reward_rejected';
       }
 
-      await addDoc(notifsRef, { 
+      StorageService.saveNotification(user.familyId, { 
         userId: item.kidId,
         familyId: user.familyId,
         message,
@@ -1954,7 +1994,7 @@ function ApprovalsView({ onAction }: any) {
       
       onAction();
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, collectionName);
+      handleStorageError(err, OperationType.WRITE, collectionName);
     }
   };
 
@@ -2367,15 +2407,14 @@ function AvatarCustomizer({ initialUrl, onSave, onCancel }: { initialUrl?: strin
 function AvatarModal({ user, onClose, onRefresh }: { user: FamilyUser, onClose: () => void, onRefresh: () => void }) {
   const handleSave = async (avatarUrl: string) => {
     if (!user?.familyId) return;
-    const userRef = doc(db, 'families', user.familyId, 'users', user.uid);
     try {
-      await updateDoc(userRef, { avatarUrl });
       const updatedUser = { ...user, avatarUrl };
+      StorageService.saveUser(user.familyId, updatedUser);
       localStorage.setItem('family_points_user', JSON.stringify(updatedUser));
       onRefresh();
       onClose();
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, userRef.path);
+      handleStorageError(err, OperationType.UPDATE, `users/${user.uid}`);
     }
   };
 
