@@ -1,10 +1,10 @@
 {
-  "projectId": "gen-lang-client-0020253227",
-  "appId": "1:455324944587:web:0ea42e78906e72ca14734e",
-  "apiKey": "AIzaSyAJ9PyOP-SvPx6PSESKefHSVK6NGrZBl3s",
-  "authDomain": "gen-lang-client-0020253227.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-f83890b6-5cc2-44a0-a02e-a0f023414d38",
-  "storageBucket": "gen-lang-client-0020253227.firebasestorage.app",
-  "messagingSenderId": "455324944587",
-  "measurementId": ""
+  "projectId": "pointify-286da",
+  "appId": "1:1031505554307:web:f98e00c2d91423ef32e4b6",
+  "apiKey": "AIzaSyCqp_Kn5qEAMxVNZ7OOrexP3jdMnTE2Zx8",
+  "authDomain": "pointify-286da.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "pointify-286da.firebasestorage.app",
+  "messagingSenderId": "1031505554307",
+  "measurementId": "G-TNBPWCVPCP"
 }
