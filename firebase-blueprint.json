@@ -1,0 +1,162 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A family member (parent or kid) in a family group.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["parent", "kid"] },
+        "points": { "type": "number" },
+        "familyId": { "type": "string" },
+        "avatarUrl": { "type": "string" }
+      },
+      "required": ["uid", "name", "role", "points", "familyId"]
+    },
+    "Family": {
+      "title": "Family",
+      "description": "A family group sharing points and chores.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "createdBy", "createdAt"]
+    },
+    "Chore": {
+      "title": "Chore",
+      "description": "A task assigned to the family.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "points": { "type": "number" },
+        "familyId": { "type": "string" },
+        "createdBy": { "type": "string" },
+        "isRecurring": { "type": "boolean" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "category": { "type": "string", "enum": ["family", "homework"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "points", "familyId", "createdBy", "isRecurring", "category", "createdAt"]
+    },
+    "Completion": {
+      "title": "Completion",
+      "description": "A chore completion log waiting for approval.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "choreId": { "type": "string" },
+        "kidId": { "type": "string" },
+        "kidName": { "type": "string" },
+        "choreTitle": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "familyId": { "type": "string" },
+        "pointsAwarded": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "choreId", "kidId", "status", "familyId", "pointsAwarded", "timestamp"]
+    },
+    "Reward": {
+      "title": "Reward",
+      "description": "A prize that kids can redeem points for.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "cost": { "type": "number" },
+        "familyId": { "type": "string" },
+        "createdBy": { "type": "string" },
+        "isRecurring": { "type": "boolean" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "cost", "familyId", "createdBy", "isRecurring", "createdAt"]
+    },
+    "Redemption": {
+      "title": "Redemption",
+      "description": "A reward redemption request waiting for approval.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "rewardId": { "type": "string" },
+        "kidId": { "type": "string" },
+        "kidName": { "type": "string" },
+        "rewardTitle": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "familyId": { "type": "string" },
+        "cost": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "rewardId", "kidId", "status", "familyId", "cost", "timestamp"]
+    },
+    "SharedGoal": {
+      "title": "Shared Goal",
+      "description": "A collective family goal.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "cost": { "type": "number" },
+        "currentPoints": { "type": "number" },
+        "familyId": { "type": "string" },
+        "contributors": { "type": "object" },
+        "status": { "type": "string", "enum": ["active", "completed"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "cost", "currentPoints", "familyId", "status", "createdAt"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "In-app notifications for activity.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "familyId": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string" },
+        "read": { "type": "boolean" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "familyId", "message", "type", "read", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/families/{familyId}": {
+      "schema": "Family",
+      "description": "Family groups"
+    },
+    "/families/{familyId}/users/{userId}": {
+      "schema": "User",
+      "description": "Users within a family"
+    },
+    "/families/{familyId}/chores/{choreId}": {
+      "schema": "Chore",
+      "description": "Chores for a family"
+    },
+    "/families/{familyId}/completions/{completionId}": {
+      "schema": "Completion",
+      "description": "Chore completions"
+    },
+    "/families/{familyId}/rewards/{rewardId}": {
+      "schema": "Reward",
+      "description": "Rewards for a family"
+    },
+    "/families/{familyId}/redemptions/{redemptionId}": {
+      "schema": "Redemption",
+      "description": "Reward redemptions"
+    },
+    "/families/{familyId}/shared-goals/{goalId}": {
+      "schema": "SharedGoal",
+      "description": "Family goals"
+    },
+    "/families/{familyId}/notifications/{notifId}": {
+      "schema": "Notification",
+      "description": "Activity notifications"
+    }
+  }
+}

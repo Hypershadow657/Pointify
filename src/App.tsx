@@ -31,6 +31,57 @@ import {
   Download,
   User as UserIcon,
 } from 'lucide-react';
+import { 
+  doc, 
+  setDoc, 
+  getDoc, 
+  collection, 
+  query, 
+  where, 
+  onSnapshot, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  orderBy, 
+  limit,
+  serverTimestamp,
+  getDocFromServer,
+  increment,
+  writeBatch
+} from 'firebase/firestore';
+import { onAuthStateChanged, signInAnonymously, signOut as firebaseSignOut } from 'firebase/auth';
+import { db, auth } from './firebase';
+
+// --- Error Handling ---
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: any;
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 // --- Simple Types ---
 export interface FamilyUser {
@@ -69,65 +120,53 @@ export default function App() {
       e.preventDefault();
       setDeferredPrompt(e);
     });
+
+    // Test connection
+    const testConnection = async () => {
+      try {
+        await getDocFromServer(doc(db, 'test', 'connection'));
+      } catch (error) {
+        if(error instanceof Error && error.message.includes('the client is offline')) {
+          console.error("Please check your Firebase configuration.");
+        }
+      }
+    };
+    testConnection();
   }, []);
 
   useEffect(() => {
-    // Safety timeout: Never stay loading more than 3 seconds
-    const timeout = setTimeout(() => {
-      if (loading) {
-        console.warn("Auth initialization timed out, forcing load.");
-        setLoading(false);
-      }
-    }, 3000);
-
-    const initAuth = async () => {
-      try {
-        const savedUser = localStorage.getItem('family_points_user');
-        if (savedUser) {
-          const parsed = JSON.parse(savedUser);
-          if (parsed && parsed.uid) {
-            // Use a controller to abort if it takes too long
-            const controller = new AbortController();
-            const fetchTimeout = setTimeout(() => controller.abort(), 2500);
-            
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        const savedUserData = localStorage.getItem('family_points_user');
+        if (savedUserData) {
+          const parsed = JSON.parse(savedUserData);
+          if (parsed.familyId && parsed.uid) {
+            const userRef = doc(db, 'families', parsed.familyId, 'users', parsed.uid);
             try {
-              const res = await fetch(`/api/users/${parsed.uid}`, { signal: controller.signal });
-              clearTimeout(fetchTimeout);
-              if (res.ok) {
-                const data = await res.json();
-                setUser(data);
-                localStorage.setItem('family_points_user', JSON.stringify(data));
+              const userSnap = await getDoc(userRef);
+              if (userSnap.exists()) {
+                setUser(userSnap.data() as FamilyUser);
               } else {
-                localStorage.removeItem('family_points_user');
+                setUser(null);
               }
             } catch (err) {
-              console.error("Fetch failed or timed out:", err);
-              localStorage.removeItem('family_points_user');
+              handleFirestoreError(err, OperationType.GET, userRef.path);
             }
-          } else {
-            localStorage.removeItem('family_points_user');
           }
         }
-      } catch (e) {
-        console.error("Auth check failed:", e);
-        localStorage.removeItem('family_points_user');
-      } finally {
-        setLoading(false);
-        clearTimeout(timeout);
+      } else {
+        setUser(null);
       }
-    };
-    initAuth();
-    return () => clearTimeout(timeout);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  const handleSignOut = () => {
-    console.log("Clearing auth state...");
+  const handleSignOut = async () => {
+    await firebaseSignOut(auth);
     localStorage.removeItem('family_points_user');
-    localStorage.clear();
-    sessionStorage.clear();
     setUser(null);
-    // Hard navigate to ensure a clean slate
-    window.location.replace('/');
   };
 
   const switchUser = (targetUser: FamilyUser) => {
@@ -137,19 +176,17 @@ export default function App() {
   };
 
   const refreshUser = async () => {
-    if (user && user.uid && user.uid !== 'temp') {
+    if (user?.familyId && user?.uid) {
+      const userRef = doc(db, 'families', user.familyId, 'users', user.uid);
       try {
-        const res = await fetch(`/api/users/${user.uid}`);
-        if (res.ok) {
-          const data = await res.json();
-          // Safety: Only update if the user hasn't logged out in the meantime
-          if (localStorage.getItem('family_points_user')) {
-            setUser(data);
-            localStorage.setItem('family_points_user', JSON.stringify(data));
-          }
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          const data = userSnap.data() as FamilyUser;
+          setUser(data);
+          localStorage.setItem('family_points_user', JSON.stringify(data));
         }
-      } catch (e) {
-        console.error("Refresh failed:", e);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.GET, userRef.path);
       }
     }
   };
@@ -191,8 +228,14 @@ function LandingPage({ onAuthSuccess, deferredPrompt }: { onAuthSuccess: () => v
 
   const handleEnter = async () => {
     setLoading(true);
-    setUser({ uid: 'temp' } as any);
-    setLoading(false);
+    try {
+      await signInAnonymously(auth);
+      setUser({ uid: 'temp' } as any);
+    } catch (err) {
+      console.error("Anonymous sign in failed:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleInstall = async () => {
@@ -245,31 +288,50 @@ function Onboarding({ onComplete }: { onComplete: () => void, [key: string]: any
   const [loading, setLoading] = useState(false);
 
   const finalize = async (familyId: string) => {
-    const res = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: name || (role === 'parent' ? 'Parent' : 'Kid'),
-        role,
-        familyId,
-        avatarUrl: avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${Math.random()}`
-      })
-    });
-    const data = await res.json();
-    localStorage.setItem('family_points_user', JSON.stringify(data));
-    setUser(data);
-    onComplete();
+    setLoading(true);
+    const userId = auth.currentUser?.uid;
+    if (!userId) return;
+
+    const userData = {
+      uid: userId,
+      name: name || (role === 'parent' ? 'Parent' : 'Kid'),
+      role,
+      familyId,
+      avatarUrl: avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${Math.random()}`,
+      points: 0
+    };
+
+    const userRef = doc(db, 'families', familyId, 'users', userId);
+    try {
+      await setDoc(userRef, userData);
+      localStorage.setItem('family_points_user', JSON.stringify(userData));
+      setUser(userData as FamilyUser);
+      onComplete();
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, userRef.path);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCreateFamily = async () => {
     setLoading(true);
-    const res = await fetch('/api/families', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: familyName, createdBy: 'temp' })
-    });
-    const family = await res.json();
-    await finalize(family.id);
+    const familyId = Math.random().toString(36).substring(2, 11);
+    const familyRef = doc(db, 'families', familyId);
+    try {
+      const familyData = {
+        id: familyId,
+        name: familyName,
+        createdBy: auth.currentUser?.uid || 'temp',
+        createdAt: new Date().toISOString()
+      };
+      await setDoc(familyRef, familyData);
+      await finalize(familyId);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, familyRef.path);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleJoinFamily = async () => {
@@ -281,14 +343,19 @@ function Onboarding({ onComplete }: { onComplete: () => void, [key: string]: any
       setLoading(false);
       return;
     }
-    const res = await fetch(`/api/families/${id}`);
-    if (!res.ok) {
-      setError("Family ID not found!");
+    const familyRef = doc(db, 'families', id);
+    try {
+      const familySnap = await getDoc(familyRef);
+      if (!familySnap.exists()) {
+        setError("Family ID not found!");
+        setLoading(false);
+        return;
+      }
+      await finalize(id);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.GET, familyRef.path);
       setLoading(false);
-      return;
     }
-    const family = await res.json();
-    await finalize(family.id);
   };
 
   return (
@@ -393,25 +460,34 @@ function Dashboard({ deferredPrompt }: { deferredPrompt: any, [key: string]: any
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [isActivityOpen, setIsActivityOpen] = useState(false);
 
-  const fetchData = async () => {
-    if (!user) return;
-    const [notifRes, membersRes] = await Promise.all([
-      fetch(`/api/families/${user.familyId}/notifications`),
-      fetch(`/api/families/${user.familyId}/members`)
-    ]);
-    if (notifRes.ok) setNotifications(await notifRes.json());
-    if (membersRes.ok) setFamilyMembers(await membersRes.json());
-  };
-
   useEffect(() => {
-    fetchData();
+    if (!user?.familyId) return;
+
+    const familiesRef = doc(db, 'families', user.familyId);
+    
+    // Notifications listener
+    const notifsQuery = query(
+      collection(familiesRef, 'notifications'),
+      orderBy('timestamp', 'desc'),
+      limit(20)
+    );
+    const unsubNotifs = onSnapshot(notifsQuery, (snapshot) => {
+      setNotifications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'notifications'));
+
+    // Members listener
+    const membersQuery = collection(familiesRef, 'users');
+    const unsubMembers = onSnapshot(membersQuery, (snapshot) => {
+      setFamilyMembers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FamilyUser)));
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'users'));
+
     refreshUser();
-    const interval = setInterval(() => {
-      fetchData();
-      refreshUser();
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [user?.uid]);
+    
+    return () => {
+      unsubNotifs();
+      unsubMembers();
+    };
+  }, [user?.uid, user?.familyId]);
 
   const navItems = [
     { id: 'overview', label: 'Home', icon: <LayoutDashboard size={20} /> },
@@ -693,17 +769,13 @@ function OverviewView() {
   const [selectedChild, setSelectedChild] = useState<any | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const fetchMembers = async () => {
-    if (!user) return;
-    const res = await fetch(`/api/families/${user.familyId}/members`);
-    if (res.ok) setFamilyMembers(await res.json());
-  };
-
   useEffect(() => {
-    fetchMembers();
-    const interval = setInterval(fetchMembers, 5000);
-    return () => clearInterval(interval);
-  }, [user]);
+    if (!user?.familyId) return;
+    const unsub = onSnapshot(collection(db, 'families', user.familyId, 'users'), (snapshot) => {
+      setFamilyMembers(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() })));
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'users'));
+    return () => unsub();
+  }, [user?.familyId]);
 
   const copyCode = () => {
     if (user?.familyId) {
@@ -786,26 +858,31 @@ function ManageChildModal({ child, onClose }: any) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const fetchActivity = async () => {
-      try {
-        const res = await fetch(`/api/users/${child.uid}/activity`);
-        if (res.ok) setActivity(await res.json());
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchActivity();
-  }, [child.uid]);
+    if (!child?.uid || !user?.familyId) return;
+    const activityQuery = query(
+      collection(db, 'families', user.familyId, 'completions'),
+      where('kidId', '==', child.uid),
+      where('status', '==', 'approved'),
+      limit(50)
+    );
+    const unsub = onSnapshot(activityQuery, (snapshot) => {
+      setActivity(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), type: 'chore' })));
+      setLoading(false);
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'completions'));
+    return () => unsub();
+  }, [child.uid, user?.familyId]);
 
   const updatePoints = async () => {
+    if (!user?.familyId) return;
     setSaving(true);
-    await fetch(`/api/users/${child.uid}/points`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ points })
-    });
-    setSaving(false);
-    onClose();
+    const userRef = doc(db, 'families', user.familyId, 'users', child.uid);
+    try {
+      await updateDoc(userRef, { points });
+      setSaving(false);
+      onClose();
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, userRef.path);
+    }
   };
 
   return (
@@ -905,24 +982,24 @@ function ChoresView() {
   const [deletingChore, setDeletingChore] = useState<any | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
 
-  const fetchData = async () => {
-    if (!user) return;
-    const [choresRes, completionsRes] = await Promise.all([
-      fetch(`/api/families/${user.familyId}/chores`),
-      fetch(`/api/families/${user.familyId}/completions`)
-    ]);
-    if (choresRes.ok) setChores(await choresRes.json());
-    if (completionsRes.ok) {
-      const comps = await completionsRes.json();
-      setPendingIds(comps.filter((c: any) => c.status === 'pending' && c.kidId === user.uid).map((c: any) => c.choreId));
-    }
-  };
+  useEffect(() => {
+    if (!user?.familyId) return;
+    const choresRef = collection(db, 'families', user.familyId, 'chores');
+    const unsubChores = onSnapshot(choresRef, (snapshot) => {
+      setChores(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'chores'));
 
-  useEffect(() => { 
-    fetchData();
-    const interval = setInterval(fetchData, 5000);
-    return () => clearInterval(interval);
-  }, [user]);
+    const completionsRef = collection(db, 'families', user.familyId, 'completions');
+    const q = query(completionsRef, where('status', '==', 'pending'), where('kidId', '==', user.uid));
+    const unsubComps = onSnapshot(q, (snapshot) => {
+      setPendingIds(snapshot.docs.map(doc => doc.data().choreId));
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'completions'));
+
+    return () => {
+      unsubChores();
+      unsubComps();
+    };
+  }, [user?.familyId, user?.uid]);
 
   const showToast = (message: string, type: 'success' | 'info' = 'success') => {
     setToast({ message, type });
@@ -930,41 +1007,49 @@ function ChoresView() {
   };
 
   const complete = async (chore: any) => {
+    if (!user?.familyId) return;
     setCompletingIds(prev => [...prev, chore.id]);
     try {
-      await fetch('/api/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          choreId: chore.id, 
-          kidId: user?.uid, 
-          kidName: user?.name,
-          choreTitle: chore.title,
-          status: 'pending', 
-          familyId: user?.familyId, 
-          pointsAwarded: chore.points 
-        })
+      const completionsRef = collection(db, 'families', user.familyId, 'completions');
+      await addDoc(completionsRef, { 
+        choreId: chore.id, 
+        kidId: user.uid, 
+        kidName: user.name,
+        choreTitle: chore.title,
+        status: 'pending', 
+        familyId: user.familyId, 
+        pointsAwarded: chore.points,
+        timestamp: new Date().toISOString()
       });
-      await fetch('/api/notifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: 'ALL_PARENTS', familyId: user?.familyId, message: `${user?.name} completed: ${chore.title}`, type: 'chore_completed' })
+
+      const notifsRef = collection(db, 'families', user.familyId, 'notifications');
+      await addDoc(notifsRef, { 
+        userId: 'ALL_PARENTS', 
+        familyId: user.familyId, 
+        message: `${user.name} completed: ${chore.title}`, 
+        type: 'chore_completed',
+        read: false,
+        timestamp: new Date().toISOString()
       });
-      await fetchData();
+
       showToast("Told your parents! Waiting for approval.");
     } catch (err) {
-      console.error(err);
+      handleFirestoreError(err, OperationType.WRITE, 'completions');
     } finally {
       setCompletingIds(prev => prev.filter(id => id !== chore.id));
     }
   };
 
   const deleteChore = async () => {
-    if (!deletingChore) return;
-    await fetch(`/api/chores/${deletingChore.id}`, { method: 'DELETE' });
-    fetchData();
-    setDeletingChore(null);
-    showToast("Chore deleted", "info" as any);
+    if (!deletingChore || !user?.familyId) return;
+    const choreRef = doc(db, 'families', user.familyId, 'chores', deletingChore.id);
+    try {
+      await deleteDoc(choreRef);
+      setDeletingChore(null);
+      showToast("Chore deleted", "info" as any);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, choreRef.path);
+    }
   };
 
   return (
@@ -1146,6 +1231,8 @@ function AddChoreModal({ onClose, user }: any) {
   
   const submit = async (e: any) => {
     e.preventDefault();
+    if (!user?.familyId) return;
+
     let expiresAt = null;
     if (duration !== 'none') {
       const now = new Date();
@@ -1155,20 +1242,24 @@ function AddChoreModal({ onClose, user }: any) {
       expiresAt = now.toISOString();
     }
 
-    await fetch('/api/chores', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        title, 
-        points, 
-        familyId: user.familyId, 
-        createdBy: user.uid,
-        isRecurring,
-        expiresAt,
-        category
-      })
-    });
-    onClose();
+    const choresRef = collection(db, 'families', user.familyId, 'chores');
+    const choreData = {
+      title, 
+      points, 
+      familyId: user.familyId, 
+      createdBy: user.uid,
+      isRecurring,
+      expiresAt,
+      category,
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      await addDoc(choresRef, choreData);
+      onClose();
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, choresRef.path);
+    }
   };
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"><div className="absolute inset-0 bg-black/10 backdrop-blur-sm" onClick={onClose} />
@@ -1245,24 +1336,24 @@ function RewardsView() {
   const [deletingReward, setDeletingReward] = useState<any | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
 
-  const fetchData = async () => {
-    if (!user) return;
-    const [rewardsRes, redemptionsRes] = await Promise.all([
-      fetch(`/api/families/${user.familyId}/rewards`),
-      fetch(`/api/families/${user.familyId}/redemptions`)
-    ]);
-    if (rewardsRes.ok) setRewards(await rewardsRes.json());
-    if (redemptionsRes.ok) {
-      const reds = await redemptionsRes.json();
-      setPendingIds(reds.filter((r: any) => r.status === 'pending' && r.kidId === user.uid).map((r: any) => r.rewardId));
-    }
-  };
+  useEffect(() => {
+    if (!user?.familyId) return;
+    const rewardsRef = collection(db, 'families', user.familyId, 'rewards');
+    const unsubRewards = onSnapshot(rewardsRef, (snapshot) => {
+      setRewards(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'rewards'));
 
-  useEffect(() => { 
-    fetchData();
-    const interval = setInterval(fetchData, 5000);
-    return () => clearInterval(interval);
-  }, [user]);
+    const redemptionsRef = collection(db, 'families', user.familyId, 'redemptions');
+    const q = query(redemptionsRef, where('status', '==', 'pending'), where('kidId', '==', user.uid));
+    const unsubReds = onSnapshot(q, (snapshot) => {
+      setPendingIds(snapshot.docs.map(doc => doc.data().rewardId));
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'redemptions'));
+
+    return () => {
+      unsubRewards();
+      unsubReds();
+    };
+  }, [user?.familyId, user?.uid]);
 
   const showToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
     setToast({ message, type });
@@ -1270,43 +1361,48 @@ function RewardsView() {
   };
 
   const redeem = async (r: any) => {
-    if (user!.points < r.cost) return showToast("Insufficient points!", "error");
+    if (!user?.familyId) return;
+    if (user.points < r.cost) return showToast("Insufficient points!", "error");
     
-    await fetch('/api/redemptions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
+    try {
+      const redemptionsRef = collection(db, 'families', user.familyId, 'redemptions');
+      await addDoc(redemptionsRef, { 
         rewardId: r.id, 
-        kidId: user?.uid, 
-        kidName: user?.name,
+        kidId: user.uid, 
+        kidName: user.name,
         rewardTitle: r.title,
         status: 'pending', 
-        familyId: user?.familyId, 
-        cost: r.cost 
-      })
-    });
-    
-    await fetch('/api/notifications', { 
-      method: 'POST', 
-      headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify({ 
+        familyId: user.familyId, 
+        cost: r.cost,
+        timestamp: new Date().toISOString()
+      });
+      
+      const notifsRef = collection(db, 'families', user.familyId, 'notifications');
+      await addDoc(notifsRef, { 
         userId: 'ALL_PARENTS', 
-        familyId: user?.familyId, 
-        message: `${user?.name} wants to redeem: ${r.title}`, 
-        type: 'reward_redeemed' 
-      })
-    });
-    
-    fetchData();
-    showToast("Sent to parents for approval!");
+        familyId: user.familyId, 
+        message: `${user.name} wants to redeem: ${r.title}`, 
+        type: 'reward_redeemed',
+        read: false,
+        timestamp: new Date().toISOString()
+      });
+      
+      showToast("Sent to parents for approval!");
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, 'redemptions');
+    }
   };
 
   const deleteReward = async () => {
-    if (!deletingReward) return;
-    await fetch(`/api/rewards/${deletingReward.id}`, { method: 'DELETE' });
-    fetchData();
-    setDeletingReward(null);
-    showToast("Reward deleted", "info" as any);
+    if (!deletingReward || !user?.familyId) return;
+    const rewardRef = doc(db, 'families', user.familyId, 'rewards', deletingReward.id);
+    try {
+      await deleteDoc(rewardRef);
+      setDeletingReward(null);
+      showToast("Reward deleted", "info" as any);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, rewardRef.path);
+    }
   };
 
   return (
@@ -1403,6 +1499,8 @@ function AddRewardModal({ onClose, user }: any) {
 
   const submit = async (e: any) => {
     e.preventDefault();
+    if (!user?.familyId) return;
+
     let expiresAt = null;
     if (duration !== 'none') {
       const now = new Date();
@@ -1412,19 +1510,23 @@ function AddRewardModal({ onClose, user }: any) {
       expiresAt = now.toISOString();
     }
 
-    await fetch('/api/rewards', { 
-      method: 'POST', 
-      headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify({ 
-        title, 
-        cost, 
-        familyId: user.familyId, 
-        createdBy: user.uid,
-        isRecurring,
-        expiresAt 
-      })
-    });
-    onClose();
+    const rewardsRef = collection(db, 'families', user.familyId, 'rewards');
+    const rewardData = { 
+      title, 
+      cost, 
+      familyId: user.familyId, 
+      createdBy: user.uid,
+      isRecurring,
+      expiresAt,
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      await addDoc(rewardsRef, rewardData);
+      onClose();
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, rewardsRef.path);
+    }
   };
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"><div className="absolute inset-0 bg-black/10 backdrop-blur-sm" onClick={onClose} />
@@ -1483,17 +1585,14 @@ function SharedGoalsView() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
   const [deletingGoal, setDeletingGoal] = useState<any | null>(null);
 
-  const fetchData = async () => {
-    if (!user) return;
-    const res = await fetch(`/api/families/${user.familyId}/shared-goals`);
-    if (res.ok) setGoals(await res.json());
-  };
-
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 5000);
-    return () => clearInterval(interval);
-  }, [user]);
+    if (!user?.familyId) return;
+    const goalsRef = collection(db, 'families', user.familyId, 'shared-goals');
+    const unsub = onSnapshot(goalsRef, (snapshot) => {
+      setGoals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'shared-goals'));
+    return () => unsub();
+  }, [user?.familyId]);
 
   const showToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
     setToast({ message, type });
@@ -1506,29 +1605,40 @@ function SharedGoalsView() {
   };
 
   const handleContribute = async () => {
-    if (!contributingGoal || !user) return;
+    if (!contributingGoal || !user?.familyId) return;
     if (user.points < amount) return showToast("Insufficient points!", "error");
 
-    const res = await fetch(`/api/shared-goals/${contributingGoal.id}/contribute`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kidId: user.uid, amount })
-    });
+    try {
+      const batch = writeBatch(db);
+      const userRef = doc(db, 'families', user.familyId, 'users', user.uid);
+      const goalRef = doc(db, 'families', user.familyId, 'shared-goals', contributingGoal.id);
+      
+      batch.update(userRef, { points: increment(-amount) });
+      batch.update(goalRef, { 
+        currentPoints: increment(amount),
+        [`contributors.${user.uid}`]: increment(amount) 
+      });
 
-    if (res.ok) {
+      await batch.commit();
+      
       showToast(`Chipped in ${amount} pts!`);
       setContributingGoal(null);
-      await fetchData();
-      await refreshUser();
+      refreshUser();
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, 'shared-goals');
     }
   };
 
   const deleteGoal = async () => {
-    if (!deletingGoal) return;
-    await fetch(`/api/shared-goals/${deletingGoal.id}`, { method: 'DELETE' });
-    fetchData();
-    setDeletingGoal(null);
-    showToast("Goal removed", "info" as any);
+    if (!deletingGoal || !user?.familyId) return;
+    const goalRef = doc(db, 'families', user.familyId, 'shared-goals', deletingGoal.id);
+    try {
+      await deleteDoc(goalRef);
+      setDeletingGoal(null);
+      showToast("Goal removed", "info" as any);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, goalRef.path);
+    }
   };
 
   return (
@@ -1688,12 +1798,24 @@ function AddSharedGoalModal({ onClose, user }: any) {
 
   const submit = async (e: any) => {
     e.preventDefault();
-    await fetch('/api/shared-goals', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, cost, familyId: user.familyId })
-    });
-    onClose();
+    if (!user?.familyId) return;
+
+    const goalsRef = collection(db, 'families', user.familyId, 'shared-goals');
+    const goalData = { 
+      title, 
+      cost, 
+      currentPoints: 0, 
+      familyId: user.familyId,
+      contributors: {},
+      status: 'active',
+      createdAt: new Date().toISOString()
+    };
+    try {
+      await addDoc(goalsRef, goalData);
+      onClose();
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, goalsRef.path);
+    }
   };
 
   return (
@@ -1752,23 +1874,70 @@ function ApprovalsView({ onAction }: any) {
   const [completions, setCompletions] = useState<any[]>([]);
   const [redemptions, setRedemptions] = useState<any[]>([]);
 
-  const fetchItems = async () => {
-    if (!user) return;
-    const [res1, res2] = await Promise.all([
-      fetch(`/api/families/${user.familyId}/completions`),
-      fetch(`/api/families/${user.familyId}/redemptions`)
-    ]);
-    if (res1.ok) setCompletions((await res1.json()).filter((i: any) => i.status === 'pending'));
-    if (res2.ok) setRedemptions((await res2.json()).filter((i: any) => i.status === 'pending'));
-  };
+  useEffect(() => {
+    if (!user?.familyId) return;
+    const familiesRef = doc(db, 'families', user.familyId);
+    
+    const compsRef = collection(familiesRef, 'completions');
+    const unsubComps = onSnapshot(query(compsRef, where('status', '==', 'pending')), (snapshot) => {
+      setCompletions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'completions'));
 
-  useEffect(() => { fetchItems(); }, [user]);
+    const redsRef = collection(familiesRef, 'redemptions');
+    const unsubReds = onSnapshot(query(redsRef, where('status', '==', 'pending')), (snapshot) => {
+      setRedemptions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'redemptions'));
 
-  const act = async (endpoint: string, id: string, status: string) => {
-    await fetch(`/api/${endpoint}/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status })});
-    await fetchItems();
-    await refreshUser();
-    onAction();
+    return () => {
+      unsubComps();
+      unsubReds();
+    };
+  }, [user?.familyId]);
+
+  const act = async (collectionName: string, item: any, action: 'approved' | 'rejected') => {
+    if (!user?.familyId) return;
+    const batch = writeBatch(db);
+    const itemRef = doc(db, 'families', user.familyId, collectionName, item.id);
+    const kidRef = doc(db, 'families', user.familyId, 'users', item.kidId);
+    
+    batch.update(itemRef, { status: action });
+    
+    if (action === 'approved') {
+      if (collectionName === 'completions') {
+        batch.update(kidRef, { points: increment(item.pointsAwarded) });
+      } else if (collectionName === 'redemptions') {
+        batch.update(kidRef, { points: increment(-item.cost) });
+      }
+    }
+
+    try {
+      await batch.commit();
+      
+      const notifsRef = collection(db, 'families', user.familyId, 'notifications');
+      let message = "";
+      let type = "";
+      
+      if (collectionName === 'completions') {
+        message = action === 'approved' ? `Bravo! Points awarded for ${item.choreTitle}!` : `Sorry, your completion of ${item.choreTitle} wasn't approved.`;
+        type = action === 'approved' ? 'chore_approved' : 'chore_rejected';
+      } else {
+        message = action === 'approved' ? `Enjoy your reward: ${item.rewardTitle}!` : `Sorry, your redemption of ${item.rewardTitle} was rejected.`;
+        type = action === 'approved' ? 'reward_approved' : 'reward_rejected';
+      }
+
+      await addDoc(notifsRef, { 
+        userId: item.kidId,
+        familyId: user.familyId,
+        message,
+        type,
+        read: false,
+        timestamp: new Date().toISOString()
+      });
+      
+      onAction();
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, collectionName);
+    }
   };
 
   if (completions.length === 0 && redemptions.length === 0) {
@@ -2179,15 +2348,16 @@ function AvatarCustomizer({ initialUrl, onSave, onCancel }: { initialUrl?: strin
 
 function AvatarModal({ user, onClose, onRefresh }: { user: FamilyUser, onClose: () => void, onRefresh: () => void }) {
   const handleSave = async (avatarUrl: string) => {
-    const res = await fetch(`/api/users/${user.uid}/avatar`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ avatarUrl })
-    });
-    if (res.ok) {
-      localStorage.setItem('family_points_user', JSON.stringify({ ...user, avatarUrl }));
+    if (!user?.familyId) return;
+    const userRef = doc(db, 'families', user.familyId, 'users', user.uid);
+    try {
+      await updateDoc(userRef, { avatarUrl });
+      const updatedUser = { ...user, avatarUrl };
+      localStorage.setItem('family_points_user', JSON.stringify(updatedUser));
       onRefresh();
       onClose();
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, userRef.path);
     }
   };
 
