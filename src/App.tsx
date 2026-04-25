@@ -123,11 +123,29 @@ export default function App() {
 
     // Test connection
     const testConnection = async () => {
+      const currentDomain = window.location.hostname;
       try {
-        await getDocFromServer(doc(db, 'test', 'connection'));
+        // We use a specific path that doesn't necessarily exist, 
+        // just to verify the network path to Firestore is open.
+        await getDocFromServer(doc(db, '_connection_test_', 'ping'));
       } catch (error) {
-        if(error instanceof Error && error.message.includes('the client is offline')) {
-          console.error("Please check your Firebase configuration.");
+        if (error instanceof Error) {
+          const msg = error.message.toLowerCase();
+          if (msg.includes('the client is offline')) {
+            console.error(`Firebase Connection Error: The client is offline. 
+            
+            IMPORTANT: You must authorize this domain in your Firebase Console:
+            1. Go to Authentication > Settings > Authorized domains
+            2. Add: ${currentDomain}
+            
+            Also ensure Firestore is enabled in your Firebase Console.`);
+          } else if (msg.includes('permission-denied') || msg.includes('insufficient permissions')) {
+            // Permission denied counts as a successful connection! 
+            // It means we reached Firebase but don't have access to this specific path.
+            console.log("Firebase connection verified (Server responded with expected permission restriction).");
+          } else {
+            console.error("Firebase Initialization Error:", error.message);
+          }
         }
       }
     };
@@ -476,9 +494,9 @@ function Dashboard({ deferredPrompt }: { deferredPrompt: any, [key: string]: any
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'notifications'));
 
     // Members listener
-    const membersQuery = collection(familiesRef, 'users');
-    const unsubMembers = onSnapshot(membersQuery, (snapshot) => {
-      setFamilyMembers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FamilyUser)));
+    const membersRef = collection(familiesRef, 'users');
+    const unsubMembers = onSnapshot(membersRef, (snapshot) => {
+      setFamilyMembers(snapshot.docs.map(doc => ({ ...doc.data() } as FamilyUser)));
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'users'));
 
     refreshUser();
@@ -615,7 +633,7 @@ function Dashboard({ deferredPrompt }: { deferredPrompt: any, [key: string]: any
             {activeTab === 'chores' && <ChoresView key="chores" />}
             {activeTab === 'rewards' && <RewardsView key="rewards" />}
             {activeTab === 'goals' && <SharedGoalsView key="goals" />}
-            {activeTab === 'approvals' && user?.role === 'parent' && <ApprovalsView key="approvals" onAction={fetchData} />}
+            {activeTab === 'approvals' && user?.role === 'parent' && <ApprovalsView key="approvals" onAction={() => {}} />}
           </AnimatePresence>
         </div>
       </main>
@@ -842,7 +860,6 @@ function OverviewView() {
             child={selectedChild} 
             onClose={() => {
               setSelectedChild(null);
-              fetchMembers();
             }} 
           />
         )}
@@ -852,6 +869,7 @@ function OverviewView() {
 }
 
 function ManageChildModal({ child, onClose }: any) {
+  const { user } = useAuth();
   const [points, setPoints] = useState(child.points);
   const [activity, setActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1207,7 +1225,7 @@ function ChoresView() {
           );
         })}
       </div>
-      {showModal && <AddChoreModal onClose={() => { setShowModal(false); fetchData(); }} user={user} />}
+      {showModal && <AddChoreModal onClose={() => { setShowModal(false); }} user={user} />}
       <AnimatePresence>
         {deletingChore && (
           <DeleteConfirmationModal 
@@ -1476,7 +1494,7 @@ function RewardsView() {
           );
         })}
       </div>
-      {showModal && <AddRewardModal onClose={() => { setShowModal(false); fetchData(); }} user={user} />}
+      {showModal && <AddRewardModal onClose={() => { setShowModal(false); }} user={user} />}
       <AnimatePresence>
         {deletingReward && (
           <DeleteConfirmationModal 
@@ -1787,7 +1805,7 @@ function SharedGoalsView() {
         )}
       </AnimatePresence>
 
-      {showModal && <AddSharedGoalModal onClose={() => { setShowModal(false); fetchData(); }} user={user} />}
+      {showModal && <AddSharedGoalModal onClose={() => { setShowModal(false); }} user={user} />}
     </motion.div>
   );
 }

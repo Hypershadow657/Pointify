@@ -5,14 +5,14 @@
       "description": "A family member (parent or kid) in a family group.",
       "type": "object",
       "properties": {
-        "uid": { "type": "string" },
-        "name": { "type": "string" },
-        "role": { "type": "string", "enum": ["parent", "kid"] },
-        "points": { "type": "number" },
-        "familyId": { "type": "string" },
-        "avatarUrl": { "type": "string" }
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "name": { "type": "string", "description": "Display name" },
+        "role": { "type": "string", "enum": ["parent", "kid"], "description": "Parent can approve, Kid can earn" },
+        "points": { "type": "number", "description": "Current points balance" },
+        "familyId": { "type": "string", "description": "ID of the family group" },
+        "avatarUrl": { "type": "string", "description": "Profile picture URL" }
       },
-      "required": ["uid", "name", "role", "points", "familyId"]
+      "required": ["uid", "name", "role", "points", "familyId", "avatarUrl"]
     },
     "Family": {
       "title": "Family",
